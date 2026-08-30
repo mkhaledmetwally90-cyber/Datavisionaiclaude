@@ -77,6 +77,22 @@ const GlobalStyle = () => (
 /* ============================== DATA HELPERS ============================== */
 const uid = () => Math.random().toString(36).slice(2, 10);
 
+// Currencies available in Settings → Default currency. Symbols are shown before the amount
+// everywhere a value is formatted as "currency" (KPI cards, chart axes/tooltips, report totals).
+const CURRENCIES = [
+  { code: "USD", symbol: "$", label: "US Dollar (USD)" },
+  { code: "EUR", symbol: "€", label: "Euro (EUR)" },
+  { code: "GBP", symbol: "£", label: "British Pound (GBP)" },
+  { code: "SAR", symbol: "ر.س", label: "Saudi Riyal (SAR)" },
+  { code: "EGP", symbol: "ج.م", label: "Egyptian Pound (EGP)" },
+];
+const currencySymbol = (code) => (CURRENCIES.find((c) => c.code === code) || CURRENCIES[0]).symbol;
+// Read by formatValue() below. Kept as a simple module-level value (rather than threading a
+// "currency" prop through every KPI/insight/chart call site) and kept in sync from Settings via
+// a useEffect in the root App component.
+let currentCurrency = "USD";
+const setCurrentCurrency = (code) => { currentCurrency = code; };
+
 // Excel's date serial epoch (Dec 30 1899). Converts a raw serial number to a real Date.
 function excelSerialToDate(serial) {
   const utcDays = Math.floor(serial - 25569);
@@ -274,7 +290,7 @@ function computeInsights(rows, schema) {
 
 function formatValue(v, type) {
   if (v === null || v === undefined || isNaN(v)) return "—";
-  if (type === "currency") return "$" + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (type === "currency") return currencySymbol(currentCurrency) + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
   if (type === "percentage") return Number(v).toFixed(1) + "%";
   return Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
@@ -1135,7 +1151,7 @@ function FullChart({ cfg, data, series }) {
   const tick = { fontSize: fs };
   const grid = cfg.appearance.gridlines ? <CartesianGrid stroke="var(--border-2)" /> : null;
   const legend = cfg.appearance.legend ? <Legend wrapperStyle={{ fontSize: fs }} /> : null;
-  const labelFmt = (v) => cfg.appearance.numberFormat === "currency" ? "$" + Number(v).toLocaleString() : cfg.appearance.numberFormat === "percentage" ? v + "%" : Number(v).toLocaleString();
+  const labelFmt = (v) => cfg.appearance.numberFormat === "currency" ? currencySymbol(currentCurrency) + Number(v).toLocaleString() : cfg.appearance.numberFormat === "percentage" ? v + "%" : Number(v).toLocaleString();
   const dl = cfg.appearance.dataLabels;
 
   if (cfg.type === "scatter") return (
@@ -1570,7 +1586,9 @@ function SettingsPage({ settings, setSettings, theme, setTheme, lang, setLang })
         <div style={{ display: "flex", gap: 14, marginBottom: 12 }}>
           <Field label="Company name"><input className="dv-input" value={settings.company} onChange={(e) => setSettings((s) => ({ ...s, company: e.target.value }))} /></Field>
           <Field label="Default currency">
-            <select className="dv-input" value={settings.currency} onChange={(e) => setSettings((s) => ({ ...s, currency: e.target.value }))}><option>USD</option><option>EUR</option><option>GBP</option><option>SAR</option></select>
+            <select className="dv-input" value={settings.currency} onChange={(e) => setSettings((s) => ({ ...s, currency: e.target.value }))}>
+              {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
+            </select>
           </Field>
         </div>
         <div style={{ display: "flex", gap: 14 }}>
@@ -1621,6 +1639,9 @@ export default function DataVisionApp() {
     ],
   });
   const [settings, setSettings] = useState({ company: "Acme Inc.", currency: "USD", dateFormat: "MM/DD/YYYY", template: "executive" });
+
+  // Keep the module-level currency (read by formatValue everywhere) in sync with Settings.
+  React.useEffect(() => { setCurrentCurrency(settings.currency); }, [settings.currency]);
 
   const handleFinishAnalysis = useCallback((result) => {
     setAnalysis(result);
