@@ -766,7 +766,11 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
     };
 
     const script = document.createElement("script");
-    script.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json;responseHandler=${callbackName}&gid=${gid}`;
+    // tqx sub-parameters are colon-separated key:value pairs joined by semicolons — using "="
+    // here (an easy mistake) makes Google silently ignore our callback name and fall back to its
+    // own default handler, which doesn't exist on our page, so nothing ever fires.
+    const tqx = encodeURIComponent(`out:json;responseHandler:${callbackName}`);
+    script.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=${tqx}&gid=${gid}`;
     script.onerror = () => {
       clearTimeout(timer);
       setError("Couldn't reach this sheet. Double-check the link and that it's shared as \"Anyone with the link can view.\"");
