@@ -77,6 +77,14 @@ const GlobalStyle = () => (
       #dv-print-area, #dv-print-area *{visibility:visible;}
       #dv-print-area{position:absolute !important;left:0;top:0;width:auto !important;transform:none !important;}
       .dv-report-page{box-shadow:none !important;page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid;overflow:hidden;}
+      /* Recharts keeps its hover tooltip cursor/active-dot in the DOM at all times, only toggling
+         visibility:hidden while idle. Our blanket "make everything in the print area visible" rule
+         above accidentally un-hides that resting cursor, which is what shows up as a stray little
+         square near the first data point. Force those specific Recharts internals back off. */
+      #dv-print-area .recharts-tooltip-wrapper,
+      #dv-print-area .recharts-tooltip-cursor,
+      #dv-print-area .recharts-active-dot,
+      #dv-print-area .recharts-brush{visibility:hidden !important;display:none !important;}
     }
   `}</style>
 );
@@ -1517,13 +1525,16 @@ function ReportBuilder({ report, setReport, dataset, analysis, charts, setRoute,
 function ElementEditor({ el, updateEl, dataset, analysis, charts }) {
   if (el.type === "chart") {
     return (
-      <select className="dv-input" value={el.config.chartId || ""} onChange={(e) => {
-        const chosen = charts.find((c) => c.id === e.target.value);
-        updateEl(el.id, { config: { ...el.config, chartId: e.target.value }, title: chosen ? chosen.title : el.title });
-      }}>
-        <option value="">Select a chart…</option>
-        {charts.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-      </select>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <select className="dv-input" value={el.config.chartId || ""} onChange={(e) => {
+          const chosen = charts.find((c) => c.id === e.target.value);
+          updateEl(el.id, { config: { ...el.config, chartId: e.target.value }, title: chosen ? chosen.title : el.title });
+        }}>
+          <option value="">Select a chart…</option>
+          {charts.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+        </select>
+        <textarea className="dv-input" rows={2} placeholder="Optional paragraph under this chart (e.g. context or takeaway)…" value={el.config.caption || ""} onChange={(e) => updateEl(el.id, { config: { ...el.config, caption: e.target.value } })} />
+      </div>
     );
   }
   if (el.type === "text") {
@@ -1630,7 +1641,12 @@ function ReportElementBody({ el, dataset, analysis, charts, theme }) {
     if (!chart) return <div style={{ color: "#96A0AF", fontSize: bfs }}>No chart selected — pick one in the field below.</div>;
     const { data, series } = aggregateChart(dataset.rows, dataset.schema, chart);
     const isPie = chart.type === "pie" || chart.type === "donut";
-    return <div style={{ height: isPie ? 320 : 260, breakInside: "avoid", pageBreakInside: "avoid" }}><FullChart cfg={chart} data={data} series={series} /></div>;
+    return (
+      <div style={{ breakInside: "avoid", pageBreakInside: "avoid" }}>
+        <div style={{ height: isPie ? 320 : 260 }}><FullChart cfg={chart} data={data} series={series} /></div>
+        {el.config.caption && <div style={{ fontSize: bfs - 1, lineHeight: 1.6, color: "#5B6472", marginTop: 12 }}>{el.config.caption}</div>}
+      </div>
+    );
   }
   if (el.type === "text") return <div style={{ fontSize: bfs, lineHeight: 1.7, color: "#344054" }}>{el.config.body}</div>;
   if (el.type === "insights") return (
