@@ -72,10 +72,11 @@ const GlobalStyle = () => (
     }
     .dv-tpl-thumb{width:36px;height:26px;border-radius:4px;flex-shrink:0;overflow:hidden;position:relative;border:1px solid rgba(0,0,0,.06);}
     @media print{
+      @page{ margin:0; }
       body *{visibility:hidden;}
       #dv-print-area, #dv-print-area *{visibility:visible;}
       #dv-print-area{position:absolute;left:0;top:0;width:100%;}
-      .dv-report-page{box-shadow:none !important;page-break-after:always;}
+      .dv-report-page{box-shadow:none !important;page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid;overflow:hidden;}
     }
   `}</style>
 );
@@ -1100,16 +1101,41 @@ function ChartBuilder({ chart, dataset, onSave, onCancel, onAddToReport }) {
     let svgStr = new XMLSerializer().serializeToString(svgEl);
     if (!svgStr.includes("xmlns=")) svgStr = svgStr.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
     const url = URL.createObjectURL(new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" }));
+
+    // Recharts renders its <Legend> as an HTML element sitting next to the <svg>, not inside it —
+    // so exporting just the SVG silently drops the legend. We redraw a matching legend row
+    // ourselves onto the export canvas using the same series/colors the chart is using.
+    const palette = getPalette(cfg.appearance.colorPalette);
+    const legendItems = !cfg.appearance.legend ? [] :
+      (cfg.type === "pie" || cfg.type === "donut") ? data.map((d, i) => ({ name: d.name, color: palette[i % palette.length] })) :
+      series.length ? series.map((s, i) => ({ name: s, color: palette[i % palette.length] })) :
+      [{ name: cfg.yField, color: palette[0] }];
+
     const img = new Image();
     img.onload = () => {
       const scale = 2;
       const w = svgEl.clientWidth || 700, h = svgEl.clientHeight || 400;
+      const legendRowH = legendItems.length ? 30 : 0;
       const canvas = document.createElement("canvas");
-      canvas.width = w * scale; canvas.height = h * scale;
+      canvas.width = w * scale; canvas.height = (h + legendRowH) * scale;
       const ctx = canvas.getContext("2d");
       ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.scale(scale, scale);
       ctx.drawImage(img, 0, 0, w, h);
+      if (legendItems.length) {
+        ctx.font = "12px Inter, sans-serif";
+        ctx.textBaseline = "middle";
+        let x = 12, y = h + legendRowH / 2;
+        legendItems.forEach((item) => {
+          const textW = ctx.measureText(item.name).width;
+          if (x + 16 + textW > w - 10) { x = 12; }
+          ctx.fillStyle = item.color;
+          ctx.fillRect(x, y - 5, 10, 10);
+          ctx.fillStyle = "#333333";
+          ctx.fillText(item.name, x + 15, y);
+          x += 15 + textW + 18;
+        });
+      }
       URL.revokeObjectURL(url);
       canvas.toBlob((blob) => {
         const link = document.createElement("a");
@@ -1604,7 +1630,7 @@ function ReportElementBody({ el, dataset, analysis, charts, theme }) {
     if (!chart) return <div style={{ color: "#96A0AF", fontSize: bfs }}>No chart selected — pick one in the field below.</div>;
     const { data, series } = aggregateChart(dataset.rows, dataset.schema, chart);
     const isPie = chart.type === "pie" || chart.type === "donut";
-    return <div style={{ height: isPie ? 320 : 260 }}><FullChart cfg={chart} data={data} series={series} /></div>;
+    return <div style={{ height: isPie ? 320 : 260, breakInside: "avoid", pageBreakInside: "avoid" }}><FullChart cfg={chart} data={data} series={series} /></div>;
   }
   if (el.type === "text") return <div style={{ fontSize: bfs, lineHeight: 1.7, color: "#344054" }}>{el.config.body}</div>;
   if (el.type === "insights") return (
