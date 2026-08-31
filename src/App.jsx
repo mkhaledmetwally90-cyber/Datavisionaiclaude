@@ -65,6 +65,12 @@ const GlobalStyle = () => (
     .dv-cell{width:16px;height:11px;border-radius:2px;background:#2A3A5C;}
     @keyframes cellRise{0%{transform:scaleY(.3);opacity:.4;}100%{transform:scaleY(1);opacity:1;}}
     .dv-report-page{background:#fff;color:#101828;box-shadow:0 1px 3px rgba(16,24,40,.08), 0 12px 32px rgba(16,24,40,.10);}
+    .dv-split{display:grid;grid-template-columns:var(--split-w,320px) 1fr;min-height:0;}
+    @media (max-width: 880px){
+      .dv-split{grid-template-columns:1fr;grid-template-rows:auto 1fr;}
+      .dv-split-side{max-height:46vh;border-right:none !important;border-bottom:1px solid var(--border);}
+    }
+    .dv-tpl-thumb{width:36px;height:26px;border-radius:4px;flex-shrink:0;overflow:hidden;position:relative;border:1px solid rgba(0,0,0,.06);}
     @media print{
       body *{visibility:hidden;}
       #dv-print-area, #dv-print-area *{visibility:visible;}
@@ -414,6 +420,31 @@ const EmptyState = ({ icon: Icon, title, subtitle, action }) => (
   </div>
 );
 
+// Global confirmation dialog — used anywhere a destructive action (delete file / report / section)
+// needs a deliberate second step instead of deleting on the first click.
+function ConfirmDialog({ state, onCancel }) {
+  if (!state) return null;
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(11,18,32,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 20 }} onClick={onCancel}>
+      <div className="dv-card dv-fade-in" style={{ padding: 22, maxWidth: 340, width: "100%" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 16 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--rose-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <AlertTriangle size={16} color="var(--rose)" />
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 4 }}>{state.title}</div>
+            <div style={{ fontSize: 12.5, color: "var(--text-2)", lineHeight: 1.5 }}>{state.message}</div>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={onCancel}>Cancel</button>
+          <button className="dv-btn dv-btn-sm" style={{ background: "var(--rose)", color: "#fff" }} onClick={() => { state.onConfirm(); onCancel(); }}>Delete</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const Stepper = ({ steps, current }) => (
   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 28, flexWrap: "wrap" }}>
     {steps.map((s, i) => (
@@ -641,37 +672,47 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
   const [sortDir, setSortDir] = useState("asc");
   const [page, setPage] = useState(1);
   const [hiddenCols, setHiddenCols] = useState([]);
+  const [pendingWorkbook, setPendingWorkbook] = useState(null); // { wb, fileName } — set when an uploaded Excel file has more than one sheet
   const fileInputRef = useRef();
   const pageSize = 8;
 
   const steps = ["Import", "Preview & Quality", "Analysis", "Chart Recommendations"];
 
+  const finishImport = (rawRows, columns, sheetName, fileName) => {
+    if (!rawRows.length || !columns.length) {
+      setError("This sheet appears to be empty. Please choose a sheet that contains data, or upload a different file.");
+      setLoading(false);
+      return;
+    }
+    const rows = normalizeSerialDateColumns(rawRows, columns);
+    const schema = buildSchema(rows, columns);
+    setDataset({ name: fileName, sheetName: sheetName || "Sheet1", rows, columns, schema, id: uid() });
+    setPendingWorkbook(null);
+    setLoading(false);
+    setStep(1);
+  };
+
+  const loadSheet = (wb, sheetName, fileName) => {
+    const ws = wb.Sheets[sheetName];
+    const json = XLSX.utils.sheet_to_json(ws, { defval: "", raw: false, dateNF: "yyyy-mm-dd" });
+    const columns = json.length ? Object.keys(json[0]) : [];
+    finishImport(json, columns, sheetName, fileName);
+  };
+
   const parseFile = (file) => {
-    setError(""); setLoading(true);
+    setError(""); setLoading(true); setPendingWorkbook(null);
     const ext = file.name.split(".").pop().toLowerCase();
     if (!["csv", "xlsx", "xls"].includes(ext)) {
       setError("Unsupported format. Please upload a .csv, .xlsx or .xls file.");
       setLoading(false);
       return;
     }
-    const finish = (rawRows, columns, sheetName) => {
-      if (!rawRows.length || !columns.length) {
-        setError("This file appears to be empty. Please upload a spreadsheet that contains data.");
-        setLoading(false);
-        return;
-      }
-      const rows = normalizeSerialDateColumns(rawRows, columns);
-      const schema = buildSchema(rows, columns);
-      setDataset({ name: file.name, sheetName: sheetName || "Sheet1", rows, columns, schema, id: uid() });
-      setLoading(false);
-      setStep(1);
-    };
     if (ext === "csv") {
       Papa.parse(file, {
         header: true, skipEmptyLines: true,
         complete: (res) => {
           const columns = res.meta.fields || [];
-          finish(res.data, columns, file.name.replace(/\.csv$/i, ""));
+          finishImport(res.data, columns, file.name.replace(/\.csv$/i, ""), file.name);
         },
         error: () => { setError("Failed to read this CSV file. Please check the format and try again."); setLoading(false); },
       });
@@ -680,14 +721,17 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
       reader.onload = (e) => {
         try {
           const wb = XLSX.read(e.target.result, { type: "array", cellDates: true });
-          const sheetName = wb.SheetNames[0];
-          const ws = wb.Sheets[sheetName];
+          if (wb.SheetNames.length > 1) {
+            // Multiple sheets — let the person pick which one to analyze instead of silently
+            // reading just the first sheet.
+            setPendingWorkbook({ wb, fileName: file.name });
+            setLoading(false);
+            return;
+          }
           // raw:false renders each cell using its Excel number format, so dates/currency/percentages
           // come through as readable strings ("8/29/2026", "$1,234", "12%") instead of raw serials —
           // which is what our column-type detector expects.
-          const json = XLSX.utils.sheet_to_json(ws, { defval: "", raw: false, dateNF: "yyyy-mm-dd" });
-          const columns = json.length ? Object.keys(json[0]) : [];
-          finish(json, columns, sheetName);
+          loadSheet(wb, wb.SheetNames[0], file.name);
         } catch (err) {
           setError("We couldn't parse this Excel file. It may be corrupted or in an unsupported format.");
           setLoading(false);
@@ -763,6 +807,19 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
               <button className="dv-btn dv-btn-dark" style={{ width: "100%", justifyContent: "center" }} onClick={() => setError("__gsheet__")}>Connect Google Sheet</button>
             </div>
           </div>
+          {pendingWorkbook && (
+            <div className="dv-card dv-fade-in" style={{ padding: 18, marginBottom: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>This file has {pendingWorkbook.wb.SheetNames.length} sheets</div>
+              <div style={{ fontSize: 12.5, color: "var(--text-2)", marginBottom: 12 }}>Choose which one to analyze — you can always upload again to pick a different sheet.</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {pendingWorkbook.wb.SheetNames.map((name) => (
+                  <button key={name} className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => { setLoading(true); loadSheet(pendingWorkbook.wb, name, pendingWorkbook.fileName); }}>
+                    <FileSpreadsheet size={13} /> {name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {error === "__gsheet__" && (
             <div className="dv-card" style={{ padding: 14, borderColor: "var(--amber)", background: "var(--amber-dim)", display: "flex", gap: 10, fontSize: 13, color: "var(--text)", marginBottom: 14 }}>
               <Info size={16} color="var(--amber)" style={{ flexShrink: 0, marginTop: 1 }} />
@@ -827,6 +884,9 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
                 ))}
               </div>
             </div>
+            <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
+              <Info size={11} /> Wrong type detected? Change the dropdown next to any column name below.
+            </div>
             <div className="dv-scrollbar" style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
                 <thead>
@@ -838,7 +898,12 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
                           style={{ textAlign: "left", padding: "8px 10px", borderBottom: "1px solid var(--border)", cursor: "pointer", whiteSpace: "nowrap", color: "var(--text-2)", fontWeight: 700 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                             {c} {sortCol === c && (sortDir === "asc" ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
-                            <span style={{ fontWeight: 500, color: "var(--text-3)", fontSize: 10 }}>· {type}</span>
+                            <select value={type} onClick={(e) => e.stopPropagation()} onChange={(e) => {
+                              const newType = e.target.value;
+                              setDataset((d) => ({ ...d, schema: d.schema.map((s) => s.name === c ? { ...s, type: newType } : s) }));
+                            }} style={{ fontWeight: 500, color: "var(--text-2)", fontSize: 10, border: "1px solid var(--border)", borderRadius: 5, background: "var(--surface)", padding: "1px 3px" }} title="Override detected type">
+                              {["date", "number", "currency", "percentage", "text", "boolean"].map((t) => <option key={t} value={t}>{t}</option>)}
+                            </select>
                           </div>
                         </th>
                       );
@@ -1027,10 +1092,38 @@ function ChartBuilder({ chart, dataset, onSave, onCancel, onAddToReport }) {
   const allCols = dataset.columns;
   const xColType = dataset.schema.find((s) => s.name === cfg.xField)?.type;
   const uniqueXVals = useMemo(() => _.uniq(dataset.rows.map((r) => String(r[cfg.xField]))).slice(0, 30), [dataset, cfg.xField]);
+  const chartRef = useRef(null);
+
+  const downloadPNG = () => {
+    const svgEl = chartRef.current?.querySelector("svg");
+    if (!svgEl) return;
+    let svgStr = new XMLSerializer().serializeToString(svgEl);
+    if (!svgStr.includes("xmlns=")) svgStr = svgStr.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
+    const url = URL.createObjectURL(new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" }));
+    const img = new Image();
+    img.onload = () => {
+      const scale = 2;
+      const w = svgEl.clientWidth || 700, h = svgEl.clientHeight || 400;
+      const canvas = document.createElement("canvas");
+      canvas.width = w * scale; canvas.height = h * scale;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((blob) => {
+        const link = document.createElement("a");
+        link.download = `${(cfg.title || "chart").replace(/[^a-z0-9]+/gi, "_")}.png`;
+        link.href = URL.createObjectURL(blob);
+        link.click();
+      });
+    };
+    img.src = url;
+  };
 
   return (
-    <div className="dv-fade-in" style={{ display: "grid", gridTemplateColumns: "320px 1fr", height: "100%" }}>
-      <div className="dv-scrollbar" style={{ borderRight: "1px solid var(--border)", padding: 20, overflowY: "auto" }}>
+    <div className="dv-fade-in dv-split" style={{ "--split-w": "320px", height: "100%" }}>
+      <div className="dv-scrollbar dv-split-side" style={{ borderRight: "1px solid var(--border)", padding: 20, overflowY: "auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
           <div style={{ fontWeight: 700, fontSize: 15 }}>Chart Editor</div>
           <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={onCancel}><X size={14} /></button>
@@ -1125,9 +1218,14 @@ function ChartBuilder({ chart, dataset, onSave, onCancel, onAddToReport }) {
 
       <div style={{ padding: 28, background: "var(--paper)", overflowY: "auto" }}>
         <div className="dv-card" style={{ padding: 26, maxWidth: 720, margin: "0 auto" }}>
-          <div style={{ fontWeight: 700, fontSize: 17 }}>{cfg.title}</div>
-          {cfg.subtitle && <div style={{ fontSize: 13, color: "var(--text-2)", marginBottom: 14 }}>{cfg.subtitle}</div>}
-          <div style={{ height: 380, marginTop: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 17 }}>{cfg.title}</div>
+              {cfg.subtitle && <div style={{ fontSize: 13, color: "var(--text-2)" }}>{cfg.subtitle}</div>}
+            </div>
+            <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={downloadPNG}><Download size={13} /> PNG</button>
+          </div>
+          <div ref={chartRef} style={{ height: 380, marginTop: 14 }}>
             <FullChart cfg={cfg} data={data} series={series} />
           </div>
         </div>
@@ -1247,7 +1345,7 @@ function getReportTheme(report) {
   };
 }
 
-function ReportBuilder({ report, setReport, dataset, analysis, charts, setRoute }) {
+function ReportBuilder({ report, setReport, dataset, analysis, charts, setRoute, askConfirm }) {
   const [zoom, setZoom] = useState(0.34);
   const addElement = (type) => {
     const el = { id: uid(), type, title: SECTION_LIBRARY.find((s) => s.type === type)?.label, config: {} };
@@ -1287,13 +1385,23 @@ function ReportBuilder({ report, setReport, dataset, analysis, charts, setRoute 
         </div>
       </div>
 
-      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "420px 1fr", minHeight: 0 }}>
-        <div className="dv-scrollbar" style={{ overflowY: "auto", padding: 20, borderRight: "1px solid var(--border)" }}>
+      <div className="dv-split" style={{ "--split-w": "420px", flex: 1, minHeight: 0 }}>
+        <div className="dv-scrollbar dv-split-side" style={{ overflowY: "auto", padding: 20, borderRight: "1px solid var(--border)" }}>
           <Section title="Template">
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {TEMPLATES.map((t) => (
-                <button key={t.id} onClick={() => setReport((r) => ({ ...r, template: t.id }))} className="dv-btn dv-btn-sm" style={{ border: `1.5px solid ${report.template === t.id ? t.accent : "var(--border)"}`, background: report.template === t.id ? t.accent + "18" : "var(--surface)", color: "var(--text)", flexDirection: "column", alignItems: "flex-start", height: "auto", padding: "7px 10px" }}>
-                  <span style={{ fontWeight: 700 }}>{t.name}</span><span style={{ fontSize: 10, color: "var(--text-2)", fontWeight: 400 }}>{t.desc}</span>
+                <button key={t.id} onClick={() => setReport((r) => ({ ...r, template: t.id }))} className="dv-btn dv-btn-sm" style={{ border: `1.5px solid ${report.template === t.id ? t.accent : "var(--border)"}`, background: report.template === t.id ? t.accent + "18" : "var(--surface)", color: "var(--text)", alignItems: "center", height: "auto", padding: "7px 10px", gap: 8 }}>
+                  <svg width="34" height="24" viewBox="0 0 34 24" className="dv-tpl-thumb">
+                    <rect width="34" height="24" fill="#fff" />
+                    <rect x="3" y="3" width="13" height="2.5" fill={t.accent} rx="1" />
+                    <rect x="3" y="8" width="28" height="1" fill="#E3E6EC" />
+                    <rect x="3" y="12" width="6" height="9" fill={t.accent} opacity="0.2" />
+                    <rect x="11" y="15" width="6" height="6" fill={t.accent} opacity="0.4" />
+                    <rect x="19" y="9" width="6" height="12" fill={t.accent} opacity="0.6" />
+                  </svg>
+                  <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+                    <span style={{ fontWeight: 700 }}>{t.name}</span><span style={{ fontSize: 10, color: "var(--text-2)", fontWeight: 400 }}>{t.desc}</span>
+                  </span>
                 </button>
               ))}
             </div>
@@ -1347,7 +1455,7 @@ function ReportBuilder({ report, setReport, dataset, analysis, charts, setRoute 
                   <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
                     <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => move(el.id, -1)}><ChevronUp size={12} /></button>
                     <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => move(el.id, 1)}><ChevronDown size={12} /></button>
-                    <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => remove(el.id)}><Trash2 size={12} color="var(--rose)" /></button>
+                    <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => askConfirm("Remove section?", `"${el.title}" will be removed from this report.`, () => remove(el.id))}><Trash2 size={12} color="var(--rose)" /></button>
                   </div>
                 </div>
                 <ElementEditor el={el} updateEl={updateEl} dataset={dataset} analysis={analysis} charts={charts} />
@@ -1517,7 +1625,7 @@ function ReportElementBody({ el, dataset, analysis, charts, theme }) {
 }
 
 /* ============================== FILES / REPORTS / SETTINGS ============================== */
-function FilesPage({ files, setRoute }) {
+function FilesPage({ files, setFiles, setRoute, askConfirm }) {
   return (
     <div className="dv-fade-in" style={{ padding: 28, maxWidth: 1080, margin: "0 auto" }}>
       <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 18 }}>My Files</div>
@@ -1535,7 +1643,9 @@ function FilesPage({ files, setRoute }) {
               <div style={{ display: "flex", gap: 6 }}>
                 <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setRoute("new-analysis")}>Open</button>
                 <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setRoute("new-analysis")}>Analyze</button>
-                <button className="dv-btn dv-btn-ghost dv-btn-sm"><Trash2 size={13} color="var(--rose)" /></button>
+                <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => askConfirm("Delete file?", `"${f.name}" will be removed from My Files. This can't be undone.`, () => setFiles((fs) => fs.filter((x) => x.id !== f.id)))}>
+                  <Trash2 size={13} color="var(--rose)" />
+                </button>
               </div>
             </div>
           ))}
@@ -1545,14 +1655,21 @@ function FilesPage({ files, setRoute }) {
   );
 }
 
-function ReportsPage({ reports, setRoute }) {
+function ReportsPage({ reports, setReports, setRoute, askConfirm }) {
   return (
     <div className="dv-fade-in" style={{ padding: 28, maxWidth: 1080, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 18 }}>
         <div style={{ fontWeight: 700, fontSize: 17 }}>My Reports</div>
         <button className="dv-btn dv-btn-primary dv-btn-sm" onClick={() => setRoute("report-builder")}><Plus size={14} /> New Report</button>
       </div>
-      {reports.length === 0 ? <EmptyState icon={FileText} title="No reports yet" subtitle="Create your first report from an analysis." action={<button className="dv-btn dv-btn-primary dv-btn-sm" onClick={() => setRoute("report-builder")}>Build a report</button>} /> : (
+      <div className="dv-card" style={{ padding: 16, marginBottom: 18, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: "var(--blue-dim)", borderColor: "var(--blue)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <IconBox icon={FileText} tone="blue" />
+          <div style={{ fontSize: 13, color: "var(--text)" }}>Continue editing your current draft report</div>
+        </div>
+        <button className="dv-btn dv-btn-primary dv-btn-sm" onClick={() => setRoute("report-builder")}>Open Report Builder <ArrowRight size={13} /></button>
+      </div>
+      {reports.length === 0 ? <EmptyState icon={FileText} title="No saved reports yet" subtitle="Reports you build get listed here once you preview or export them." /> : (
         <div className="dv-card">
           {reports.map((r, i) => (
             <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 18px", borderBottom: i < reports.length - 1 ? "1px solid var(--border-2)" : "none" }}>
@@ -1566,8 +1683,9 @@ function ReportsPage({ reports, setRoute }) {
               <div style={{ display: "flex", gap: 6 }}>
                 <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setRoute("report-preview")}>View</button>
                 <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setRoute("report-builder")}>Edit</button>
-                <button className="dv-btn dv-btn-ghost dv-btn-sm"><Copy size={13} /></button>
-                <button className="dv-btn dv-btn-ghost dv-btn-sm"><Trash2 size={13} color="var(--rose)" /></button>
+                <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => askConfirm("Delete report?", `"${r.title}" will be permanently deleted. This can't be undone.`, () => setReports((rs) => rs.filter((x) => x.id !== r.id)))}>
+                  <Trash2 size={13} color="var(--rose)" />
+                </button>
               </div>
             </div>
           ))}
@@ -1639,6 +1757,8 @@ export default function DataVisionApp() {
     ],
   });
   const [settings, setSettings] = useState({ company: "Acme Inc.", currency: "USD", dateFormat: "MM/DD/YYYY", template: "executive" });
+  const [confirmState, setConfirmState] = useState(null);
+  const askConfirm = (title, message, onConfirm) => setConfirmState({ title, message, onConfirm });
 
   // Keep the module-level currency (read by formatValue everywhere) in sync with Settings.
   React.useEffect(() => { setCurrentCurrency(settings.currency); }, [settings.currency]);
@@ -1704,6 +1824,7 @@ export default function DataVisionApp() {
     <div className="dv-root" data-theme={theme} dir={lang === "ar" ? "rtl" : "ltr"} style={{ height: "100vh", minHeight: 640, display: "flex" }}>
       <GlobalStyle />
       <style>{`@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>
+      <ConfirmDialog state={confirmState} onCancel={() => setConfirmState(null)} />
       <Sidebar route={route} setRoute={goRoute} />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         {!isFullBleed && !isPreview && <TopBar title={titles[route]?.[0] || ""} subtitle={titles[route]?.[1]} theme={theme} setTheme={setTheme} lang={lang} setLang={setLang} />}
@@ -1711,9 +1832,9 @@ export default function DataVisionApp() {
           {route === "dashboard" && <Dashboard files={files} reports={reports} setRoute={goRoute} />}
           {route === "new-analysis" && <NewAnalysis dataset={dataset} setDataset={setDataset} onFinish={handleFinishAnalysis} setRoute={goRoute} onAddToReport={addChartToReport} onCustomizeChart={onCustomizeChart} />}
           {route === "charts" && <ChartsPage charts={charts} setCharts={setCharts} dataset={dataset} onAddToReport={addChartToReport} editingId={editingChartId} setEditingId={setEditingChartId} />}
-          {route === "files" && <FilesPage files={files} setRoute={goRoute} />}
-          {route === "reports" && <ReportsPage reports={reports} setRoute={goRoute} />}
-          {route === "report-builder" && <ReportBuilder report={report} setReport={setReport} dataset={dataset} analysis={analysis} charts={charts} setRoute={goRoute} />}
+          {route === "files" && <FilesPage files={files} setFiles={setFiles} setRoute={goRoute} askConfirm={askConfirm} />}
+          {route === "reports" && <ReportsPage reports={reports} setReports={setReports} setRoute={goRoute} askConfirm={askConfirm} />}
+          {route === "report-builder" && <ReportBuilder report={report} setReport={setReport} dataset={dataset} analysis={analysis} charts={charts} setRoute={goRoute} askConfirm={askConfirm} />}
           {route === "report-preview" && <ReportPreview report={report} dataset={dataset} analysis={analysis} charts={charts} setRoute={goRoute} />}
           {route === "settings" && <SettingsPage settings={settings} setSettings={setSettings} theme={theme} setTheme={setTheme} lang={lang} setLang={setLang} />}
         </div>
