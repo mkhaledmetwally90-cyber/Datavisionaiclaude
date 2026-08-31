@@ -11,7 +11,7 @@ import {
   Plus, ArrowRight, ArrowLeft, Search, ChevronUp, ChevronDown, Trash2, Copy, Eye,
   Download, Sparkles, AlertTriangle, CheckCircle2, X, Sun, Moon, Globe, Link2,
   Table2, TrendingUp, TrendingDown, Minus, GripVertical, ZoomIn, ZoomOut, Loader2,
-  Building2, Palette, Type as TypeIcon, ChevronRight, Info, ShieldAlert, Eye, EyeOff,
+  Building2, Palette, Type as TypeIcon, ChevronRight, Info, ShieldAlert, EyeOff,
 } from "lucide-react";
 
 /* ============================== DESIGN TOKENS ============================== */
