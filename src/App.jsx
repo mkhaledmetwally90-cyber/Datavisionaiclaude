@@ -11,7 +11,7 @@ import {
   Plus, ArrowRight, ArrowLeft, Search, ChevronUp, ChevronDown, Trash2, Copy, Eye,
   Download, Sparkles, AlertTriangle, CheckCircle2, X, Sun, Moon, Globe, Link2,
   Table2, TrendingUp, TrendingDown, Minus, GripVertical, ZoomIn, ZoomOut, Loader2,
-  Building2, Palette, Type as TypeIcon, ChevronRight, Info,
+  Building2, Palette, Type as TypeIcon, ChevronRight, Info, ShieldAlert, Eye, EyeOff,
 } from "lucide-react";
 
 /* ============================== DESIGN TOKENS ============================== */
@@ -178,13 +178,38 @@ function parseNumeric(v, type) {
   return isNaN(n) ? null : n;
 }
 
+// Personal/sensitive data detection — by column name (email, phone, customer name, address...)
+// and, as a backstop, by sampling actual values against email/phone shapes so an oddly-named
+// column ("Contact", "رقم") still gets caught. Flagged columns are excluded from KPIs, insights,
+// chart fields, and report tables by default, and masked in the data preview.
+const PII_NAME_PATTERN = /e[-\s]?mail|phone|mobile|whatsapp|tel(?:ephone)?|contact.?(no|number)?|customer.?name|client.?name|full.?name|^name$|address|ssn|national.?id|passport|\bid.?number\b/i;
+function looksLikeEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v).trim()); }
+function looksLikePhone(v) { const s = String(v).trim().replace(/[\s\-()]/g, ""); return /^\+?\d{7,15}$/.test(s) && s.replace(/\D/g, "").length >= 7; }
+function detectSensitiveColumn(colName, values) {
+  if (PII_NAME_PATTERN.test(colName)) return true;
+  const nonEmpty = values.filter((v) => v !== null && v !== undefined && String(v).trim() !== "").slice(0, 25);
+  if (!nonEmpty.length) return false;
+  const emailHits = nonEmpty.filter(looksLikeEmail).length;
+  if (emailHits / nonEmpty.length > 0.6) return true;
+  const phoneHits = nonEmpty.filter(looksLikePhone).length;
+  if (phoneHits / nonEmpty.length > 0.6) return true;
+  return false;
+}
+function maskValue(v) {
+  const s = String(v);
+  if (looksLikeEmail(s)) { const [user, domain] = s.split("@"); return `${user.slice(0, 1)}•••@${domain}`; }
+  if (looksLikePhone(s)) return s.replace(/\d(?=\d{2})/g, "•");
+  return s.length <= 2 ? "••" : s[0] + "•".repeat(Math.min(s.length - 1, 6));
+}
+
 function buildSchema(rows, columns) {
   return columns.map((col) => {
     const values = rows.map((r) => r[col]);
     const type = detectColumnType(values, col);
     const nonEmpty = values.filter((v) => v !== null && v !== undefined && String(v).trim() !== "");
     const unique = new Set(nonEmpty.map((v) => String(v).trim()));
-    return { name: col, type, missing: values.length - nonEmpty.length, unique: unique.size };
+    const sensitive = detectSensitiveColumn(col, values);
+    return { name: col, type, missing: values.length - nonEmpty.length, unique: unique.size, sensitive };
   });
 }
 
@@ -681,6 +706,7 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
   const [sortDir, setSortDir] = useState("asc");
   const [page, setPage] = useState(1);
   const [hiddenCols, setHiddenCols] = useState([]);
+  const [revealedCols, setRevealedCols] = useState([]); // columns the user chose to un-mask in this preview only
   const [pendingWorkbook, setPendingWorkbook] = useState(null); // { wb, fileName } — set when an uploaded Excel file has more than one sheet
   const fileInputRef = useRef();
   const pageSize = 8;
@@ -845,9 +871,12 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
   const pagedRows = filteredRows.slice((page - 1) * pageSize, page * pageSize);
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
 
-  const kpis = useMemo(() => dataset ? computeKpis(dataset.rows, dataset.schema) : [], [dataset]);
-  const insights = useMemo(() => dataset ? computeInsights(dataset.rows, dataset.schema) : [], [dataset]);
-  const recommendations = useMemo(() => dataset ? buildRecommendations(dataset.schema) : [], [dataset]);
+  // Sensitive columns (email, phone, customer name...) are excluded from every downstream
+  // calculation — KPIs, insights, and chart recommendations only ever see the safe subset.
+  const safeSchema = useMemo(() => dataset ? dataset.schema.filter((s) => !s.sensitive) : [], [dataset]);
+  const kpis = useMemo(() => dataset ? computeKpis(dataset.rows, safeSchema) : [], [dataset, safeSchema]);
+  const insights = useMemo(() => dataset ? computeInsights(dataset.rows, safeSchema) : [], [dataset, safeSchema]);
+  const recommendations = useMemo(() => dataset ? buildRecommendations(safeSchema) : [], [dataset, safeSchema]);
 
   const runAnalyze = () => {
     setLoading(true);
@@ -949,6 +978,17 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
             </div>
           )}
 
+          {dataset.schema.some((s) => s.sensitive) && (
+            <div className="dv-card" style={{ padding: 14, marginBottom: 16, background: "var(--rose-dim)", borderColor: "var(--rose)" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                <Info size={16} color="var(--rose)" style={{ flexShrink: 0, marginTop: 1 }} />
+                <div style={{ fontSize: 13 }}>
+                  <b>Personal data detected and protected:</b> {dataset.schema.filter((s) => s.sensitive).map((s) => s.name).join(", ")}. These columns are masked below and automatically left out of KPIs, insights, charts, and report tables. Click the shield icon next to a column name if this was flagged by mistake.
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="dv-card" style={{ padding: 16, marginBottom: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
               <div style={{ position: "relative" }}>
@@ -970,7 +1010,9 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
                 <thead>
                   <tr>
                     {dataset.columns.filter((c) => !hiddenCols.includes(c)).map((c) => {
-                      const type = dataset.schema.find((s) => s.name === c)?.type;
+                      const colSchema = dataset.schema.find((s) => s.name === c);
+                      const type = colSchema?.type;
+                      const isSensitive = colSchema?.sensitive;
                       return (
                         <th key={c} onClick={() => { setSortCol(c); setSortDir(sortCol === c && sortDir === "asc" ? "desc" : "asc"); }}
                           style={{ textAlign: "left", padding: "8px 10px", borderBottom: "1px solid var(--border)", cursor: "pointer", whiteSpace: "nowrap", color: "var(--text-2)", fontWeight: 700 }}>
@@ -982,6 +1024,17 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
                             }} style={{ fontWeight: 500, color: "var(--text-2)", fontSize: 10, border: "1px solid var(--border)", borderRadius: 5, background: "var(--surface)", padding: "1px 3px" }} title="Override detected type">
                               {["date", "number", "currency", "percentage", "text", "boolean"].map((t) => <option key={t} value={t}>{t}</option>)}
                             </select>
+                            <button title={isSensitive ? "Marked as personal data — click to unmark" : "Mark as personal data (excludes from analysis)"}
+                              onClick={(e) => { e.stopPropagation(); setDataset((d) => ({ ...d, schema: d.schema.map((s) => s.name === c ? { ...s, sensitive: !s.sensitive } : s) })); }}
+                              style={{ border: "none", background: "none", padding: 0, cursor: "pointer", display: "flex", opacity: isSensitive ? 1 : 0.35 }}>
+                              <ShieldAlert size={12} color={isSensitive ? "var(--rose)" : "var(--text-3)"} />
+                            </button>
+                            {isSensitive && (
+                              <button title={revealedCols.includes(c) ? "Hide values again" : "Reveal values (preview only)"} onClick={(e) => { e.stopPropagation(); setRevealedCols((r) => r.includes(c) ? r.filter((x) => x !== c) : [...r, c]); }}
+                                style={{ border: "none", background: "none", padding: 0, cursor: "pointer", display: "flex" }}>
+                                {revealedCols.includes(c) ? <EyeOff size={12} color="var(--text-3)" /> : <Eye size={12} color="var(--text-3)" />}
+                              </button>
+                            )}
                           </div>
                         </th>
                       );
@@ -991,11 +1044,16 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
                 <tbody>
                   {pagedRows.map((r, i) => (
                     <tr key={i} style={{ borderBottom: "1px solid var(--border-2)" }}>
-                      {dataset.columns.filter((c) => !hiddenCols.includes(c)).map((c) => (
-                        <td key={c} className="dv-mono" style={{ padding: "8px 10px", whiteSpace: "nowrap", color: String(r[c]).trim() === "" ? "var(--rose)" : "var(--text)" }}>
-                          {String(r[c]).trim() === "" ? "missing" : String(r[c])}
-                        </td>
-                      ))}
+                      {dataset.columns.filter((c) => !hiddenCols.includes(c)).map((c) => {
+                        const isEmpty = String(r[c]).trim() === "";
+                        const isSensitive = dataset.schema.find((s) => s.name === c)?.sensitive;
+                        const masked = isSensitive && !revealedCols.includes(c) && !isEmpty;
+                        return (
+                          <td key={c} className="dv-mono" style={{ padding: "8px 10px", whiteSpace: "nowrap", color: isEmpty ? "var(--rose)" : masked ? "var(--text-3)" : "var(--text)" }}>
+                            {isEmpty ? "missing" : masked ? maskValue(r[c]) : String(r[c])}
+                          </td>
+                        );
+                      })}
                     </tr>
                   ))}
                 </tbody>
@@ -1134,7 +1192,8 @@ function ChartsPage({ charts, setCharts, dataset, onAddToReport, editingId, setE
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
         <div style={{ fontWeight: 700, fontSize: 17 }}>Charts</div>
         <button className="dv-btn dv-btn-primary dv-btn-sm" onClick={() => {
-          const blank = { id: uid(), type: "bar", title: "New Chart", subtitle: "", explanation: "", xField: dataset.columns[0], yField: dataset.columns[1] || dataset.columns[0], groupBy: "", aggregation: "sum", filters: { dateFrom: "", dateTo: "", categories: [], numMin: "", numMax: "", topN: "", bottomN: "" }, appearance: { legend: true, dataLabels: false, gridlines: true, orientation: "vertical", numberFormat: "number", colorPalette: "classic", fontSize: 12 }, addedToReport: false };
+          const safeCols = dataset.columns.filter((c) => !dataset.schema.find((s) => s.name === c)?.sensitive);
+          const blank = { id: uid(), type: "bar", title: "New Chart", subtitle: "", explanation: "", xField: safeCols[0], yField: safeCols[1] || safeCols[0], groupBy: "", aggregation: "sum", filters: { dateFrom: "", dateTo: "", categories: [], numMin: "", numMax: "", topN: "", bottomN: "" }, appearance: { legend: true, dataLabels: false, gridlines: true, orientation: "vertical", numberFormat: "number", colorPalette: "classic", fontSize: 12 }, addedToReport: false };
           setCharts((cs) => [...cs, blank]); setEditingId(blank.id);
         }}><Plus size={14} /> New Chart</button>
       </div>
@@ -1165,9 +1224,10 @@ function ChartBuilder({ chart, dataset, onSave, onCancel, onAddToReport }) {
     return next;
   });
   const { data, series } = useMemo(() => aggregateChart(dataset.rows, dataset.schema, cfg), [dataset, cfg]);
-  const numericCols = dataset.schema.filter((c) => ["number", "currency", "percentage"].includes(c.type)).map((c) => c.name);
-  const categoryCols = dataset.schema.filter((c) => c.type === "text").map((c) => c.name);
-  const allCols = dataset.columns;
+  const safeChartSchema = dataset.schema.filter((c) => !c.sensitive);
+  const numericCols = safeChartSchema.filter((c) => ["number", "currency", "percentage"].includes(c.type)).map((c) => c.name);
+  const categoryCols = safeChartSchema.filter((c) => c.type === "text").map((c) => c.name);
+  const allCols = safeChartSchema.map((c) => c.name);
   const xColType = dataset.schema.find((s) => s.name === cfg.xField)?.type;
   const uniqueXVals = useMemo(() => _.uniq(dataset.rows.map((r) => String(r[cfg.xField]))).slice(0, 30), [dataset, cfg.xField]);
   const chartRef = useRef(null);
@@ -1613,7 +1673,8 @@ function ElementEditor({ el, updateEl, dataset, analysis, charts }) {
     return <div style={{ fontSize: 12, color: "var(--text-2)" }}>{(analysis?.kpis || []).slice(0, 4).map((k) => k.label).join(" · ") || "No KPIs available"}</div>;
   }
   if (el.type === "table") {
-    return <div style={{ fontSize: 12, color: "var(--text-2)" }}>Shows the first 10 rows of "{dataset.name}" ({dataset.columns.length} columns)</div>;
+    const excluded = dataset.schema.filter((s) => s.sensitive).length;
+    return <div style={{ fontSize: 12, color: "var(--text-2)" }}>Shows the first 10 rows of "{dataset.name}" ({dataset.columns.length - excluded} columns{excluded ? `, ${excluded} personal-data column${excluded === 1 ? "" : "s"} excluded` : ""})</div>;
   }
   if (el.type === "insights") {
     return <div style={{ fontSize: 12, color: "var(--text-2)" }}>{(analysis?.insights || []).length} automatic insight(s) will be listed here</div>;
@@ -1723,14 +1784,17 @@ function ReportElementBody({ el, dataset, analysis, charts, theme }) {
       {(analysis?.insights || []).map((ins, i) => <div key={i} style={{ fontSize: bfs - 0.5, lineHeight: 1.6, paddingLeft: 14, borderLeft: `3px solid ${theme.accent}` }}>{ins.text}</div>)}
     </div>
   );
-  if (el.type === "table") return (
-    <div style={{ overflow: "hidden" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: Math.max(9, bfs - 2.5) }}>
-        <thead><tr>{dataset.columns.slice(0, 8).map((c) => <th key={c} style={{ textAlign: "left", padding: "6px 8px", background: "#F5F6FA", fontWeight: 700 }}>{c}</th>)}</tr></thead>
-        <tbody>{dataset.rows.slice(0, 10).map((r, i) => <tr key={i}>{dataset.columns.slice(0, 8).map((c) => <td key={c} style={{ padding: "6px 8px", borderBottom: "1px solid #EEF0F4" }}>{String(r[c])}</td>)}</tr>)}</tbody>
-      </table>
-    </div>
-  );
+  if (el.type === "table") {
+    const safeCols = dataset.columns.filter((c) => !dataset.schema.find((s) => s.name === c)?.sensitive).slice(0, 8);
+    return (
+      <div style={{ overflow: "hidden" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: Math.max(9, bfs - 2.5) }}>
+          <thead><tr>{safeCols.map((c) => <th key={c} style={{ textAlign: "left", padding: "6px 8px", background: "#F5F6FA", fontWeight: 700 }}>{c}</th>)}</tr></thead>
+          <tbody>{dataset.rows.slice(0, 10).map((r, i) => <tr key={i}>{safeCols.map((c) => <td key={c} style={{ padding: "6px 8px", borderBottom: "1px solid #EEF0F4" }}>{String(r[c])}</td>)}</tr>)}</tbody>
+        </table>
+      </div>
+    );
+  }
   if (el.type === "summary") return <div style={{ fontSize: bfs, lineHeight: 1.7, color: "#344054" }}>{el.config.body || "Write your executive summary in the editor on the left."}</div>;
   return null;
 }
