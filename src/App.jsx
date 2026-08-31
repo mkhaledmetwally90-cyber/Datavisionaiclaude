@@ -708,6 +708,74 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
     finishImport(json, columns, sheetName, fileName);
   };
 
+  // Public Google Sheets can be read straight from the browser with no API key and no backend,
+  // using Google's own "visualization query" endpoint in JSONP mode (a <script> tag load, not a
+  // fetch()) — fetch() is blocked by CORS for this endpoint, but script-tag loading isn't, since
+  // it's the exact mechanism Google Charts itself has used for years to embed live sheet data.
+  // This only works for sheets shared as "Anyone with the link can view" — private sheets need
+  // real OAuth, which is out of scope for a no-backend prototype.
+  const connectGoogleSheet = (url) => {
+    setError(""); setLoading(true);
+    const idMatch = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    if (!idMatch) {
+      setError("That doesn't look like a Google Sheets URL. Copy the link from your browser's address bar while viewing the sheet.");
+      setLoading(false);
+      return;
+    }
+    const sheetId = idMatch[1];
+    const gidMatch = url.match(/[#&?]gid=(\d+)/);
+    const gid = gidMatch ? gidMatch[1] : "0";
+    const callbackName = `__dvGSheetCb_${Date.now()}`;
+    const cleanup = (script) => { delete window[callbackName]; script.remove(); };
+    const timer = setTimeout(() => {
+      if (window[callbackName]) {
+        setError("Couldn't load this sheet. Make sure sharing is set to \"Anyone with the link can view\", then try again.");
+        setLoading(false);
+        delete window[callbackName];
+      }
+    }, 10000);
+
+    window[callbackName] = (resp) => {
+      clearTimeout(timer);
+      try {
+        const table = resp.table;
+        if (!table || !table.cols || !table.cols.length) throw new Error("empty");
+        const columns = table.cols.map((c, i) => (c.label && c.label.trim()) || (c.id && c.id.trim()) || `Column ${i + 1}`);
+        const rows = table.rows.map((r) => {
+          const obj = {};
+          columns.forEach((name, i) => {
+            const cell = r.c && r.c[i];
+            let val = "";
+            if (cell) {
+              // Prefer the formatted string ("f") over the raw value ("v") — dates and currency
+              // come through pre-formatted from Sheets, same as we do for Excel with raw:false.
+              if (cell.f !== undefined && cell.f !== null) val = cell.f;
+              else if (cell.v !== undefined && cell.v !== null) val = cell.v;
+            }
+            obj[name] = val;
+          });
+          return obj;
+        });
+        finishImport(rows, columns, `Sheet (gid ${gid})`, `Google Sheet — ${sheetId.slice(0, 8)}…`);
+        cleanup(script);
+      } catch (e) {
+        setError("This sheet loaded but appears to be empty, or its sharing setting blocks reading it publicly.");
+        setLoading(false);
+        cleanup(script);
+      }
+    };
+
+    const script = document.createElement("script");
+    script.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json;responseHandler=${callbackName}&gid=${gid}`;
+    script.onerror = () => {
+      clearTimeout(timer);
+      setError("Couldn't reach this sheet. Double-check the link and that it's shared as \"Anyone with the link can view.\"");
+      setLoading(false);
+      cleanup(script);
+    };
+    document.body.appendChild(script);
+  };
+
   const parseFile = (file) => {
     setError(""); setLoading(true); setPendingWorkbook(null);
     const ext = file.name.split(".").pop().toLowerCase();
@@ -813,7 +881,10 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 5, textAlign: "center" }}>Connect Google Sheets</div>
               <div style={{ fontSize: 12.5, color: "var(--text-2)", marginBottom: 14, textAlign: "center" }}>Paste a shared Google Sheets URL</div>
               <input className="dv-input" placeholder="https://docs.google.com/spreadsheets/d/..." value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} style={{ marginBottom: 10 }} />
-              <button className="dv-btn dv-btn-dark" style={{ width: "100%", justifyContent: "center" }} onClick={() => setError("__gsheet__")}>Connect Google Sheet</button>
+              <button className="dv-btn dv-btn-dark" style={{ width: "100%", justifyContent: "center" }} onClick={() => sheetUrl.trim() && connectGoogleSheet(sheetUrl.trim())} disabled={!sheetUrl.trim() || loading}>
+                {loading ? <><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Connecting…</> : "Connect Google Sheet"}
+              </button>
+              <div style={{ fontSize: 10.5, color: "var(--text-3)", marginTop: 8, textAlign: "center" }}>Sharing must be set to "Anyone with the link can view". To pick a specific tab, open that tab in Sheets first, then copy its URL.</div>
             </div>
           </div>
           {pendingWorkbook && (
@@ -829,13 +900,7 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
               </div>
             </div>
           )}
-          {error === "__gsheet__" && (
-            <div className="dv-card" style={{ padding: 14, borderColor: "var(--amber)", background: "var(--amber-dim)", display: "flex", gap: 10, fontSize: 13, color: "var(--text)", marginBottom: 14 }}>
-              <Info size={16} color="var(--amber)" style={{ flexShrink: 0, marginTop: 1 }} />
-              <div>Live Google Sheets import requires a connected backend (Google Sheets API) that isn't available in this prototype. The UI and data model are ready for it — for now, please export your sheet as .csv or .xlsx and upload it on the left.</div>
-            </div>
-          )}
-          {error && error !== "__gsheet__" && (
+          {error && (
             <div className="dv-card" style={{ padding: 14, borderColor: "var(--rose)", background: "var(--rose-dim)", display: "flex", gap: 10, fontSize: 13, color: "var(--text)" }}>
               <AlertTriangle size={16} color="var(--rose)" style={{ flexShrink: 0, marginTop: 1 }} /> {error}
             </div>
