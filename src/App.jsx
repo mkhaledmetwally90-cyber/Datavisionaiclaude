@@ -75,7 +75,7 @@ const GlobalStyle = () => (
       @page{ margin:0; }
       body *{visibility:hidden;}
       #dv-print-area, #dv-print-area *{visibility:visible;}
-      #dv-print-area{position:absolute;left:0;top:0;width:100%;}
+      #dv-print-area{position:absolute !important;left:0;top:0;width:auto !important;transform:none !important;}
       .dv-report-page{box-shadow:none !important;page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid;overflow:hidden;}
     }
   `}</style>
