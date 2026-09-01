@@ -1631,6 +1631,21 @@ const TEMPLATES = [
 
 const ACCENT_SWATCHES = ["#2F5FED", "#0EA894", "#7C5CFA", "#DD9B2E", "#DD5350", "#1F3A5F", "#2AA8D8", "#5B6472"];
 
+// Logo is absolutely positioned within the fixed-size cover page div, so moving/resizing it never
+// affects the page's layout flow or dimensions — keeps print pagination exactly as designed.
+const LOGO_POSITIONS = {
+  "top-left": { top: 40, left: 40 },
+  "top-center": { top: 40, left: "50%", transform: "translateX(-50%)" },
+  "top-right": { top: 40, right: 40 },
+  "middle-left": { top: "50%", left: 40, transform: "translateY(-50%)" },
+  "center": { top: "50%", left: "50%", transform: "translate(-50%,-50%)" },
+  "middle-right": { top: "50%", right: 40, transform: "translateY(-50%)" },
+  "bottom-left": { bottom: 40, left: 40 },
+  "bottom-center": { bottom: 40, left: "50%", transform: "translateX(-50%)" },
+  "bottom-right": { bottom: 40, right: 40 },
+};
+const LOGO_GRID = [["top-left", "top-center", "top-right"], ["middle-left", "center", "middle-right"], ["bottom-left", "bottom-center", "bottom-right"]];
+
 function getReportTheme(report) {
   const t = TEMPLATES.find((x) => x.id === report.template) || TEMPLATES[0];
   const d = report.design || {};
@@ -1665,6 +1680,13 @@ function ReportBuilder({ report, setReport, dataset, analysis, charts, setRoute,
   const remove = (id) => setReport((r) => ({ ...r, elements: r.elements.filter((e) => e.id !== id) }));
   const updateEl = (id, patch) => setReport((r) => ({ ...r, elements: r.elements.map((e) => e.id === id ? { ...e, ...patch } : e) }));
   const setDesign = (patch) => setReport((r) => ({ ...r, design: { ...(r.design || {}), ...patch } }));
+  const setLogo = (patch) => setReport((r) => ({ ...r, logo: { ...(r.logo || { dataUrl: null, size: 64, position: "top-left" }), ...patch } }));
+  const handleLogoUpload = (file) => {
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = (e) => setLogo({ dataUrl: e.target.result });
+    reader.readAsDataURL(file);
+  };
 
   if (!dataset) return <div style={{ padding: 28 }}><EmptyState icon={FileText} title="No dataset loaded" subtitle="Run a New Analysis first, then come back to build your report." /></div>;
 
@@ -1729,6 +1751,42 @@ function ReportBuilder({ report, setReport, dataset, analysis, charts, setRoute,
                 {report.design?.accentColor && <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setDesign({ accentColor: null })}>Reset</button>}
               </div>
             </Field>
+          </Section>
+
+          <Section title="Branding">
+            <Field label="Logo (cover page)">
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {report.logo?.dataUrl ? (
+                  <img src={report.logo.dataUrl} alt="Logo preview" style={{ width: 44, height: 44, objectFit: "contain", border: "1px solid var(--border)", borderRadius: 8, background: "#fff" }} />
+                ) : (
+                  <div style={{ width: 44, height: 44, borderRadius: 8, border: "1px dashed var(--border)", display: "flex", alignItems: "center", justifyContent: "center" }}><Building2 size={16} color="var(--text-3)" /></div>
+                )}
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <label className="dv-btn dv-btn-ghost dv-btn-sm" style={{ cursor: "pointer" }}>
+                    <Upload size={12} /> {report.logo?.dataUrl ? "Replace" : "Upload"}
+                    <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => handleLogoUpload(e.target.files[0])} />
+                  </label>
+                  {report.logo?.dataUrl && <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setLogo({ dataUrl: null })}>Remove</button>}
+                </div>
+              </div>
+            </Field>
+            {report.logo?.dataUrl && (
+              <>
+                <Field label={`Logo size — ${report.logo.size || 64}px`}>
+                  <input type="range" min="32" max="180" step="4" value={report.logo.size || 64} onChange={(e) => setLogo({ size: Number(e.target.value) })} style={{ width: "100%" }} />
+                </Field>
+                <Field label="Position on cover page">
+                  <div style={{ display: "inline-grid", gridTemplateColumns: "repeat(3, 28px)", gridTemplateRows: "repeat(3, 28px)", gap: 4 }}>
+                    {LOGO_GRID.flat().map((pos) => (
+                      <button key={pos} title={pos} onClick={() => setLogo({ position: pos })}
+                        style={{ width: 28, height: 28, borderRadius: 6, border: `1.5px solid ${(report.logo.position || "top-left") === pos ? "var(--blue)" : "var(--border)"}`, background: (report.logo.position || "top-left") === pos ? "var(--blue-dim)" : "var(--surface)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <div style={{ width: 6, height: 6, borderRadius: 2, background: (report.logo.position || "top-left") === pos ? "var(--blue)" : "var(--text-3)" }} />
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+              </>
+            )}
           </Section>
 
           <div className="dv-label" style={{ marginBottom: 8 }}>Add section</div>
@@ -1856,9 +1914,13 @@ function ReportPages({ report, dataset, analysis, charts, theme, pageW, pageH })
   return (
     <>
       {cover && (
-        <div className="dv-report-page" style={{ width: pageW, height: pageH, marginBottom: 24, padding: pad, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ width: 34, height: 34, borderRadius: 9, background: theme.accent, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 40 }}><BarChart3 size={18} color="#fff" /></div>
+        <div className="dv-report-page" style={{ width: pageW, height: pageH, marginBottom: 24, padding: pad, display: "flex", flexDirection: "column", justifyContent: "space-between", position: "relative", overflow: "hidden" }}>
+          {report.logo?.dataUrl ? (
+            <img src={report.logo.dataUrl} alt="Logo" style={{ position: "absolute", width: report.logo.size || 64, height: "auto", ...LOGO_POSITIONS[report.logo.position || "top-left"] }} />
+          ) : (
+            <div style={{ width: 34, height: 34, borderRadius: 9, background: theme.accent, display: "flex", alignItems: "center", justifyContent: "center", position: "absolute", ...LOGO_POSITIONS[report.logo?.position || "top-left"] }}><BarChart3 size={18} color="#fff" /></div>
+          )}
+          <div style={{ marginTop: 90 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: theme.accent, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 14 }}>{theme.name} Report</div>
             <div style={{ fontFamily: headingFamily, fontSize: 40, fontWeight: 600, lineHeight: 1.15, marginBottom: 20 }}>{report.reportTitle || report.title}</div>
             <div style={{ fontSize: 14, color: "#5B6472" }}>{report.company}</div>
@@ -2061,6 +2123,7 @@ export default function DataVisionApp() {
     id: uid(), title: "Untitled Report", reportTitle: "Quarterly Business Report", company: "Acme Inc.", author: "",
     template: "executive", orientation: "portrait", status: "draft",
     design: { headingFont: "serif", bodyFontSize: 13, accentColor: null },
+    logo: { dataUrl: null, size: 64, position: "top-left" },
     elements: [
       { id: uid(), type: "cover", title: "Cover Page", config: {} },
     ],
