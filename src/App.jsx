@@ -357,7 +357,7 @@ function buildRecommendations(schema) {
     recs.push({ id: uid(), type: "stacked-bar", title: `${numericCols[0].name} by ${categoryCols[0].name} Over Time`, subtitle: "Multiple categories tracked across time", explanation: "Stacking by category over time shows both the total trend and each segment's contribution.", xField: dateCol.name, yField: numericCols[0].name, groupBy: categoryCols[0].name, aggregation: "sum" });
   }
   return recs.map((r) => ({
-    ...r, filters: { dateFrom: "", dateTo: "", categories: [], numMin: "", numMax: "", topN: "", bottomN: "" },
+    ...r, filters: { dateFrom: "", dateTo: "", categories: [], numMin: "", numMax: "", topN: "", bottomN: "", compareYears: [] },
     appearance: { legend: true, dataLabels: false, gridlines: true, orientation: "vertical", numberFormat: "number", colorPalette: "classic", fontSize: 12 },
     addedToReport: false,
   }));
@@ -375,9 +375,47 @@ const COLOR_PALETTES = {
 };
 const getPalette = (id) => (COLOR_PALETTES[id] || COLOR_PALETTES.classic).colors;
 
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const QUARTERS = { Q1: [0, 2], Q2: [3, 5], Q3: [6, 8], Q4: [9, 11] };
+
 function aggregateChart(rows, schema, cfg) {
   const xType = (schema.find((s) => s.name === cfg.xField) || {}).type;
   const yType = (schema.find((s) => s.name === cfg.yField) || {}).type || "number";
+
+  // "Compare years" mode replaces the normal X-axis pivot with one series per selected year,
+  // bucketed by month, so e.g. 2023 vs 2024 plot as two aligned lines/bars across Jan–Dec.
+  if (xType === "date" && cfg.filters.compareYears?.length) {
+    const years = cfg.filters.compareYears;
+    const passesOtherFilters = (r) => {
+      if (cfg.filters.categories?.length && !cfg.filters.categories.includes(String(r[cfg.xField]))) return false;
+      if (cfg.filters.numMin !== "" && parseNumeric(r[cfg.yField], yType) < Number(cfg.filters.numMin)) return false;
+      if (cfg.filters.numMax !== "" && parseNumeric(r[cfg.yField], yType) > Number(cfg.filters.numMax)) return false;
+      return true;
+    };
+    const yearRows = rows.filter((r) => {
+      const d = new Date(r[cfg.xField]);
+      return !isNaN(d) && years.includes(String(d.getFullYear())) && passesOtherFilters(r);
+    });
+    const aggVals = (vals) => {
+      const nums = vals.filter((v) => v !== null);
+      if (!nums.length) return 0;
+      if (cfg.aggregation === "avg") return _.mean(nums);
+      if (cfg.aggregation === "count") return nums.length;
+      if (cfg.aggregation === "min") return _.min(nums);
+      if (cfg.aggregation === "max") return _.max(nums);
+      return _.sum(nums);
+    };
+    const data = MONTH_NAMES.map((m, mi) => {
+      const row = { name: m };
+      years.forEach((y) => {
+        const subset = yearRows.filter((r) => { const d = new Date(r[cfg.xField]); return d.getMonth() === mi && String(d.getFullYear()) === y; });
+        row[y] = aggVals(subset.map((r) => parseNumeric(r[cfg.yField], yType)));
+      });
+      return row;
+    });
+    return { data, series: years };
+  }
+
   let filtered = rows.filter((r) => {
     if (cfg.filters.categories?.length && !cfg.filters.categories.includes(String(r[cfg.xField]))) return false;
     if (xType === "date" && (cfg.filters.dateFrom || cfg.filters.dateTo)) {
@@ -391,7 +429,11 @@ function aggregateChart(rows, schema, cfg) {
   });
 
   if (cfg.type === "scatter") {
-    const data = filtered.map((r) => ({ x: parseNumeric(r[cfg.xField], xType), y: parseNumeric(r[cfg.yField], yType) })).filter((p) => p.x !== null && p.y !== null);
+    // A date field can't be parsed as a plain number — fall back to its timestamp so scatter
+    // still plots something sensible if a date ever ends up as X here, instead of silently
+    // dropping every point.
+    const xVal = (r) => xType === "date" ? Date.parse(r[cfg.xField]) : parseNumeric(r[cfg.xField], xType);
+    const data = filtered.map((r) => ({ x: xVal(r), y: parseNumeric(r[cfg.yField], yType) })).filter((p) => p.x !== null && !isNaN(p.x) && p.y !== null);
     return { data, series: [] };
   }
 
@@ -1198,7 +1240,7 @@ function ChartsPage({ charts, setCharts, dataset, onAddToReport, editingId, setE
           // near-unique currency column as X), which produces a cluttered, hard-to-read chart.
           const xDefault = (safeSchema.find((s) => s.type === "date") || safeSchema.find((s) => s.type === "text") || safeSchema[0])?.name;
           const yDefault = (safeSchema.find((s) => ["number", "currency", "percentage"].includes(s.type) && s.name !== xDefault) || safeSchema.find((s) => s.name !== xDefault) || safeSchema[0])?.name;
-          const blank = { id: uid(), type: "bar", title: "New Chart", subtitle: "", explanation: "", xField: xDefault, yField: yDefault, groupBy: "", aggregation: "sum", filters: { dateFrom: "", dateTo: "", categories: [], numMin: "", numMax: "", topN: "", bottomN: "" }, appearance: { legend: true, dataLabels: false, gridlines: true, orientation: "vertical", numberFormat: "number", colorPalette: "classic", fontSize: 12 }, addedToReport: false };
+          const blank = { id: uid(), type: "bar", title: "New Chart", subtitle: "", explanation: "", xField: xDefault, yField: yDefault, groupBy: "", aggregation: "sum", filters: { dateFrom: "", dateTo: "", categories: [], numMin: "", numMax: "", topN: "", bottomN: "", compareYears: [] }, appearance: { legend: true, dataLabels: false, gridlines: true, orientation: "vertical", numberFormat: "number", colorPalette: "classic", fontSize: 12 }, addedToReport: false };
           setCharts((cs) => [...cs, blank]); setEditingId(blank.id);
         }}><Plus size={14} /> New Chart</button>
       </div>
@@ -1237,6 +1279,13 @@ function ChartBuilder({ chart, dataset, onSave, onCancel, onAddToReport }) {
   const xColType = dataset.schema.find((s) => s.name === cfg.xField)?.type;
   const uniqueXVals = useMemo(() => _.uniq(dataset.rows.map((r) => String(r[cfg.xField]))).slice(0, 30), [dataset, cfg.xField]);
   const xUniqueCount = useMemo(() => new Set(dataset.rows.map((r) => String(r[cfg.xField]))).size, [dataset, cfg.xField]);
+  const availableYears = useMemo(() => {
+    if (xColType !== "date") return [];
+    const years = new Set(dataset.rows.map((r) => { const d = new Date(r[cfg.xField]); return isNaN(d) ? null : d.getFullYear(); }).filter((y) => y !== null));
+    return _.orderBy(Array.from(years));
+  }, [dataset, cfg.xField, xColType]);
+  const [quickYear, setQuickYear] = useState("");
+  const [quickQuarter, setQuickQuarter] = useState("");
   const chartRef = useRef(null);
 
   const downloadPNG = () => {
@@ -1302,7 +1351,13 @@ function ChartBuilder({ chart, dataset, onSave, onCancel, onAddToReport }) {
         <Section title="Chart Type">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6 }}>
             {["bar", "line", "area", "pie", "donut", "scatter", "stacked-bar", "grouped-bar"].map((t) => (
-              <button key={t} onClick={() => set("type", t)} className="dv-btn dv-btn-sm" style={{ justifyContent: "center", background: cfg.type === t ? "var(--blue)" : "var(--surface)", color: cfg.type === t ? "#fff" : "var(--text-2)", border: "1px solid var(--border)" }}>{t}</button>
+              <button key={t} onClick={() => {
+                if (t === "scatter" && xColType !== "number" && xColType !== "currency" && xColType !== "percentage") {
+                  const firstNumeric = numericCols.find((c) => c !== cfg.yField) || numericCols[0];
+                  if (firstNumeric) { setCfg((c) => ({ ...c, type: t, xField: firstNumeric })); return; }
+                }
+                set("type", t);
+              }} className="dv-btn dv-btn-sm" style={{ justifyContent: "center", background: cfg.type === t ? "var(--blue)" : "var(--surface)", color: cfg.type === t ? "#fff" : "var(--text-2)", border: "1px solid var(--border)" }}>{t}</button>
             ))}
           </div>
         </Section>
@@ -1310,13 +1365,28 @@ function ChartBuilder({ chart, dataset, onSave, onCancel, onAddToReport }) {
         <Section title="Data">
           <Field label="X-Axis">
             <select className="dv-input" value={cfg.xField} onChange={(e) => set("xField", e.target.value)}>
-              {xCatCols.length > 0 && <optgroup label="Recommended (date / category)">{xCatCols.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>}
-              {numericCols.length > 0 && <optgroup label="Numeric (can create too many groups)">{numericCols.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>}
+              {cfg.type === "scatter" ? (
+                <>
+                  {numericCols.length > 0 && <optgroup label="Recommended (numeric)">{numericCols.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>}
+                  {xCatCols.length > 0 && <optgroup label="Other (won't plot as a number)">{xCatCols.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>}
+                </>
+              ) : (
+                <>
+                  {xCatCols.length > 0 && <optgroup label="Recommended (date / category)">{xCatCols.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>}
+                  {numericCols.length > 0 && <optgroup label="Numeric (can create too many groups)">{numericCols.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>}
+                </>
+              )}
             </select>
             {cfg.type !== "scatter" && (numericCols.includes(cfg.xField) || xUniqueCount > 20) && (
               <div style={{ fontSize: 11, color: "var(--amber)", display: "flex", gap: 5, alignItems: "flex-start", marginTop: 6, lineHeight: 1.4 }}>
                 <AlertTriangle size={12} style={{ flexShrink: 0, marginTop: 1 }} />
                 <span>"{cfg.xField}" has {xUniqueCount} unique values{numericCols.includes(cfg.xField) ? " and looks like a continuous number" : ""} — {cfg.type} works best with a date or a low-cardinality category as X. Try switching X-Axis, or use Scatter for two numeric fields.</span>
+              </div>
+            )}
+            {cfg.type === "scatter" && xColType === "date" && (
+              <div style={{ fontSize: 11, color: "var(--amber)", display: "flex", gap: 5, alignItems: "flex-start", marginTop: 6, lineHeight: 1.4 }}>
+                <AlertTriangle size={12} style={{ flexShrink: 0, marginTop: 1 }} />
+                <span>Scatter needs two numeric fields. "{cfg.xField}" is a date — pick a numeric X, or use Line/Area to plot a trend over time instead.</span>
               </div>
             )}
           </Field>
@@ -1337,10 +1407,58 @@ function ChartBuilder({ chart, dataset, onSave, onCancel, onAddToReport }) {
 
         <Section title="Filters">
           {xColType === "date" && (
-            <div style={{ display: "flex", gap: 8 }}>
-              <Field label="From"><input type="date" className="dv-input" value={cfg.filters.dateFrom} onChange={(e) => set("filters.dateFrom", e.target.value)} /></Field>
-              <Field label="To"><input type="date" className="dv-input" value={cfg.filters.dateTo} onChange={(e) => set("filters.dateTo", e.target.value)} /></Field>
-            </div>
+            <>
+              <Field label="Quick range">
+                <div style={{ display: "flex", gap: 6 }}>
+                  <select className="dv-input" value={quickYear} onChange={(e) => {
+                    const y = e.target.value; setQuickYear(y);
+                    if (!y) return;
+                    const q = quickQuarter && QUARTERS[quickQuarter];
+                    const from = q ? new Date(Date.UTC(y, q[0], 1)) : new Date(Date.UTC(y, 0, 1));
+                    const to = q ? new Date(Date.UTC(y, q[1] + 1, 0)) : new Date(Date.UTC(y, 11, 31));
+                    set("filters.dateFrom", from.toISOString().slice(0, 10));
+                    set("filters.dateTo", to.toISOString().slice(0, 10));
+                  }}>
+                    <option value="">Year…</option>
+                    {availableYears.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                  <select className="dv-input" value={quickQuarter} onChange={(e) => {
+                    const q = e.target.value; setQuickQuarter(q);
+                    if (!quickYear) return;
+                    const range = q && QUARTERS[q];
+                    const from = range ? new Date(Date.UTC(quickYear, range[0], 1)) : new Date(Date.UTC(quickYear, 0, 1));
+                    const to = range ? new Date(Date.UTC(quickYear, range[1] + 1, 0)) : new Date(Date.UTC(quickYear, 11, 31));
+                    set("filters.dateFrom", from.toISOString().slice(0, 10));
+                    set("filters.dateTo", to.toISOString().slice(0, 10));
+                  }}>
+                    <option value="">Full year</option>
+                    {Object.keys(QUARTERS).map((q) => <option key={q} value={q}>{q}</option>)}
+                  </select>
+                </div>
+                <div style={{ fontSize: 10.5, color: "var(--text-3)", marginTop: 4 }}>Fills in the From/To fields below — pick a year (and optionally a quarter) as a shortcut.</div>
+              </Field>
+              <div style={{ display: "flex", gap: 8 }}>
+                <Field label="From"><input type="date" className="dv-input" value={cfg.filters.dateFrom} onChange={(e) => set("filters.dateFrom", e.target.value)} /></Field>
+                <Field label="To"><input type="date" className="dv-input" value={cfg.filters.dateTo} onChange={(e) => set("filters.dateTo", e.target.value)} /></Field>
+              </div>
+              {availableYears.length > 1 && (
+                <Field label="Compare years (overrides From/To — plots each year Jan–Dec)">
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {availableYears.map((y) => {
+                      const ys = String(y);
+                      const active = cfg.filters.compareYears.includes(ys);
+                      return (
+                        <button key={y} className="dv-btn dv-btn-sm" style={{ border: `1.5px solid ${active ? "var(--blue)" : "var(--border)"}`, background: active ? "var(--blue-dim)" : "var(--surface)", color: "var(--text)" }}
+                          onClick={() => set("filters.compareYears", active ? cfg.filters.compareYears.filter((x) => x !== ys) : [...cfg.filters.compareYears, ys])}>
+                          {y}
+                        </button>
+                      );
+                    })}
+                    {cfg.filters.compareYears.length > 0 && <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => set("filters.compareYears", [])}>Clear</button>}
+                  </div>
+                </Field>
+              )}
+            </>
           )}
           <Field label="Category filter">
             <select multiple className="dv-input" style={{ height: 70 }} value={cfg.filters.categories} onChange={(e) => set("filters.categories", Array.from(e.target.selectedOptions, (o) => o.value))}>
