@@ -1192,8 +1192,13 @@ function ChartsPage({ charts, setCharts, dataset, onAddToReport, editingId, setE
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
         <div style={{ fontWeight: 700, fontSize: 17 }}>Charts</div>
         <button className="dv-btn dv-btn-primary dv-btn-sm" onClick={() => {
-          const safeCols = dataset.columns.filter((c) => !dataset.schema.find((s) => s.name === c)?.sensitive);
-          const blank = { id: uid(), type: "bar", title: "New Chart", subtitle: "", explanation: "", xField: safeCols[0], yField: safeCols[1] || safeCols[0], groupBy: "", aggregation: "sum", filters: { dateFrom: "", dateTo: "", categories: [], numMin: "", numMax: "", topN: "", bottomN: "" }, appearance: { legend: true, dataLabels: false, gridlines: true, orientation: "vertical", numberFormat: "number", colorPalette: "classic", fontSize: 12 }, addedToReport: false };
+          const safeSchema = dataset.schema.filter((s) => !s.sensitive);
+          // Default X to a date/category field and Y to a numeric field where possible — picking
+          // the first two raw columns blindly can land on two numeric fields (or worse, a
+          // near-unique currency column as X), which produces a cluttered, hard-to-read chart.
+          const xDefault = (safeSchema.find((s) => s.type === "date") || safeSchema.find((s) => s.type === "text") || safeSchema[0])?.name;
+          const yDefault = (safeSchema.find((s) => ["number", "currency", "percentage"].includes(s.type) && s.name !== xDefault) || safeSchema.find((s) => s.name !== xDefault) || safeSchema[0])?.name;
+          const blank = { id: uid(), type: "bar", title: "New Chart", subtitle: "", explanation: "", xField: xDefault, yField: yDefault, groupBy: "", aggregation: "sum", filters: { dateFrom: "", dateTo: "", categories: [], numMin: "", numMax: "", topN: "", bottomN: "" }, appearance: { legend: true, dataLabels: false, gridlines: true, orientation: "vertical", numberFormat: "number", colorPalette: "classic", fontSize: 12 }, addedToReport: false };
           setCharts((cs) => [...cs, blank]); setEditingId(blank.id);
         }}><Plus size={14} /> New Chart</button>
       </div>
@@ -1227,9 +1232,11 @@ function ChartBuilder({ chart, dataset, onSave, onCancel, onAddToReport }) {
   const safeChartSchema = dataset.schema.filter((c) => !c.sensitive);
   const numericCols = safeChartSchema.filter((c) => ["number", "currency", "percentage"].includes(c.type)).map((c) => c.name);
   const categoryCols = safeChartSchema.filter((c) => c.type === "text").map((c) => c.name);
+  const xCatCols = safeChartSchema.filter((c) => ["date", "text", "boolean"].includes(c.type)).map((c) => c.name);
   const allCols = safeChartSchema.map((c) => c.name);
   const xColType = dataset.schema.find((s) => s.name === cfg.xField)?.type;
   const uniqueXVals = useMemo(() => _.uniq(dataset.rows.map((r) => String(r[cfg.xField]))).slice(0, 30), [dataset, cfg.xField]);
+  const xUniqueCount = useMemo(() => new Set(dataset.rows.map((r) => String(r[cfg.xField]))).size, [dataset, cfg.xField]);
   const chartRef = useRef(null);
 
   const downloadPNG = () => {
@@ -1302,7 +1309,16 @@ function ChartBuilder({ chart, dataset, onSave, onCancel, onAddToReport }) {
 
         <Section title="Data">
           <Field label="X-Axis">
-            <select className="dv-input" value={cfg.xField} onChange={(e) => set("xField", e.target.value)}>{allCols.map((c) => <option key={c} value={c}>{c}</option>)}</select>
+            <select className="dv-input" value={cfg.xField} onChange={(e) => set("xField", e.target.value)}>
+              {xCatCols.length > 0 && <optgroup label="Recommended (date / category)">{xCatCols.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>}
+              {numericCols.length > 0 && <optgroup label="Numeric (can create too many groups)">{numericCols.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>}
+            </select>
+            {cfg.type !== "scatter" && (numericCols.includes(cfg.xField) || xUniqueCount > 20) && (
+              <div style={{ fontSize: 11, color: "var(--amber)", display: "flex", gap: 5, alignItems: "flex-start", marginTop: 6, lineHeight: 1.4 }}>
+                <AlertTriangle size={12} style={{ flexShrink: 0, marginTop: 1 }} />
+                <span>"{cfg.xField}" has {xUniqueCount} unique values{numericCols.includes(cfg.xField) ? " and looks like a continuous number" : ""} — {cfg.type} works best with a date or a low-cardinality category as X. Try switching X-Axis, or use Scatter for two numeric fields.</span>
+              </div>
+            )}
           </Field>
           <Field label="Y-Axis">
             <select className="dv-input" value={cfg.yField} onChange={(e) => set("yField", e.target.value)}>{[...numericCols, ...allCols.filter(c=>!numericCols.includes(c))].map((c) => <option key={c} value={c}>{c}</option>)}</select>
