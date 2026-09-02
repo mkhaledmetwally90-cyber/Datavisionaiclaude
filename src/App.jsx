@@ -1697,6 +1697,10 @@ function ReportBuilder({ report, setReport, dataset, analysis, charts, setRoute,
     if (type === "kpi") el.config.kpis = (analysis?.kpis || []).slice(0, 4).map((k) => ({ id: uid(), field: k.field, metric: k.metric, label: k.label, format: k.format }));
     if (type === "text") el.config.body = "Add your commentary here…";
     if (type === "summary") el.config.body = "";
+    if (type === "table") {
+      const safeCols = dataset ? dataset.schema.filter((s) => !s.sensitive).map((s) => s.name) : [];
+      el.config = { columns: safeCols.slice(0, 8), rowLimit: 10, sortBy: "", sortDir: "desc" };
+    }
     setReport((r) => ({ ...r, elements: [...r.elements, el] }));
   };
   const move = (id, dir) => setReport((r) => {
@@ -1895,8 +1899,7 @@ function ElementEditor({ el, updateEl, dataset, analysis, charts }) {
     return <KpiEditor el={el} updateEl={updateEl} dataset={dataset} />;
   }
   if (el.type === "table") {
-    const excluded = dataset.schema.filter((s) => s.sensitive).length;
-    return <div style={{ fontSize: 12, color: "var(--text-2)" }}>Shows the first 10 rows of "{dataset.name}" ({dataset.columns.length - excluded} columns{excluded ? `, ${excluded} personal-data column${excluded === 1 ? "" : "s"} excluded` : ""})</div>;
+    return <TableEditor el={el} updateEl={updateEl} dataset={dataset} />;
   }
   if (el.type === "insights") {
     return <div style={{ fontSize: 12, color: "var(--text-2)" }}>{(analysis?.insights || []).length} automatic insight(s) will be listed here</div>;
@@ -1946,6 +1949,65 @@ function KpiEditor({ el, updateEl, dataset }) {
         </select>
         <input className="dv-input" style={{ flex: "1 1 100px" }} placeholder="Label (optional)" value={label} onChange={(e) => setLabel(e.target.value)} />
         <button className="dv-btn dv-btn-primary dv-btn-sm" onClick={addKpi} disabled={!field}><Plus size={12} /></button>
+      </div>
+    </div>
+  );
+}
+
+// Lets someone pick which columns show, how many rows, and a sort order for the report's data
+// table — instead of always dumping the first 8 columns / first 10 rows.
+function TableEditor({ el, updateEl, dataset }) {
+  const safeCols = dataset.schema.filter((s) => !s.sensitive).map((s) => s.name);
+  const selected = el.config.columns || safeCols.slice(0, 8);
+  const rowLimit = el.config.rowLimit ?? 10;
+  const sortBy = el.config.sortBy || "";
+  const sortDir = el.config.sortDir || "desc";
+  const excludedCount = dataset.schema.filter((s) => s.sensitive).length;
+
+  const toggleCol = (name) => {
+    const next = selected.includes(name) ? selected.filter((c) => c !== name) : [...selected, name];
+    updateEl(el.id, { config: { ...el.config, columns: next } });
+  };
+  const setCfg = (patch) => updateEl(el.id, { config: { ...el.config, ...patch } });
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div>
+        <div className="dv-label" style={{ marginBottom: 5 }}>Columns ({selected.length} of {safeCols.length})</div>
+        <div className="dv-scrollbar" style={{ display: "flex", flexWrap: "wrap", gap: 5, maxHeight: 96, overflowY: "auto" }}>
+          {safeCols.map((c) => (
+            <button key={c} onClick={() => toggleCol(c)} className="dv-btn dv-btn-sm"
+              style={{ border: `1.5px solid ${selected.includes(c) ? "var(--blue)" : "var(--border)"}`, background: selected.includes(c) ? "var(--blue-dim)" : "var(--surface)", color: "var(--text)" }}>
+              {c}
+            </button>
+          ))}
+        </div>
+        {excludedCount > 0 && <div style={{ fontSize: 10.5, color: "var(--text-3)", marginTop: 4 }}>{excludedCount} personal-data column{excludedCount === 1 ? "" : "s"} always excluded.</div>}
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ flex: 1 }}>
+          <span className="dv-label">Rows</span>
+          <select className="dv-input" value={rowLimit} onChange={(e) => setCfg({ rowLimit: Number(e.target.value) })}>
+            {[5, 10, 20, 50, 100].map((n) => <option key={n} value={n}>{n} rows</option>)}
+            <option value={0}>All rows</option>
+          </select>
+        </div>
+        <div style={{ flex: 1 }}>
+          <span className="dv-label">Sort by</span>
+          <select className="dv-input" value={sortBy} onChange={(e) => setCfg({ sortBy: e.target.value })}>
+            <option value="">Original order</option>
+            {safeCols.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        {sortBy && (
+          <div style={{ flex: "0 0 74px" }}>
+            <span className="dv-label">Dir</span>
+            <select className="dv-input" value={sortDir} onChange={(e) => setCfg({ sortDir: e.target.value })}>
+              <option value="asc">Asc</option>
+              <option value="desc">Desc</option>
+            </select>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2061,12 +2123,23 @@ function ReportElementBody({ el, dataset, analysis, charts, theme }) {
     </div>
   );
   if (el.type === "table") {
-    const safeCols = dataset.columns.filter((c) => !dataset.schema.find((s) => s.name === c)?.sensitive).slice(0, 8);
+    const allSafeCols = dataset.schema.filter((s) => !s.sensitive).map((s) => s.name);
+    // Never let a stale sensitive column sneak back in even if it was selected before being
+    // flagged — always intersect with the current safe list.
+    const cols = (el.config.columns?.length ? el.config.columns : allSafeCols.slice(0, 8)).filter((c) => allSafeCols.includes(c));
+    const sortBy = el.config.sortBy;
+    let rows = dataset.rows;
+    if (sortBy) {
+      const sortType = dataset.schema.find((s) => s.name === sortBy)?.type;
+      rows = _.orderBy(rows, (r) => sortType === "date" ? Date.parse(r[sortBy]) : (parseNumeric(r[sortBy], sortType) ?? String(r[sortBy]).toLowerCase()), el.config.sortDir || "desc");
+    }
+    const limit = el.config.rowLimit ?? 10;
+    if (limit > 0) rows = rows.slice(0, limit);
     return (
       <div style={{ overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: Math.max(9, bfs - 2.5) }}>
-          <thead><tr>{safeCols.map((c) => <th key={c} style={{ textAlign: "left", padding: "6px 8px", background: "#F5F6FA", fontWeight: 700 }}>{c}</th>)}</tr></thead>
-          <tbody>{dataset.rows.slice(0, 10).map((r, i) => <tr key={i}>{safeCols.map((c) => <td key={c} style={{ padding: "6px 8px", borderBottom: "1px solid #EEF0F4" }}>{String(r[c])}</td>)}</tr>)}</tbody>
+          <thead><tr>{cols.map((c) => <th key={c} style={{ textAlign: "left", padding: "6px 8px", background: "#F5F6FA", fontWeight: 700 }}>{c}</th>)}</tr></thead>
+          <tbody>{rows.map((r, i) => <tr key={i}>{cols.map((c) => <td key={c} style={{ padding: "6px 8px", borderBottom: "1px solid #EEF0F4" }}>{String(r[c])}</td>)}</tr>)}</tbody>
         </table>
       </div>
     );
