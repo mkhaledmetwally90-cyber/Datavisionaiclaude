@@ -263,6 +263,36 @@ function computeKpis(rows, schema) {
   return kpis;
 }
 
+// Computes one KPI value on demand from a user-chosen {field, metric} spec — used by the
+// report's KPI card editor so people can pick exactly which column/metric combo to show,
+// not just whatever computeKpis() happened to auto-generate.
+function computeSingleKpiValue(rows, schema, field, metric) {
+  const col = schema.find((s) => s.name === field);
+  if (!col) return null;
+  if (metric === "growth") {
+    const dateCol = schema.find((s) => s.type === "date");
+    if (!dateCol) return null;
+    const withDates = rows.map((r) => ({ d: Date.parse(r[dateCol.name]), v: parseNumeric(r[field], col.type) }))
+      .filter((x) => !isNaN(x.d) && x.v !== null).sort((a, b) => a.d - b.d);
+    if (withDates.length < 2) return null;
+    const first = withDates[0].v, last = withDates[withDates.length - 1].v;
+    if (first === 0) return null;
+    return ((last - first) / Math.abs(first)) * 100;
+  }
+  const vals = rows.map((r) => parseNumeric(r[field], col.type)).filter((v) => v !== null);
+  if (!vals.length) return null;
+  if (metric === "avg") return _.mean(vals);
+  if (metric === "count") return vals.length;
+  if (metric === "min") return _.min(vals);
+  if (metric === "max") return _.max(vals);
+  return _.sum(vals);
+}
+function kpiSpecFormat(schema, field, metric) {
+  if (metric === "growth") return "percentage";
+  if (metric === "count") return "number";
+  return (schema.find((s) => s.name === field) || {}).type || "number";
+}
+
 function pearson(xs, ys) {
   const n = xs.length;
   if (n < 3) return 0;
@@ -1664,7 +1694,7 @@ function ReportBuilder({ report, setReport, dataset, analysis, charts, setRoute,
     // Chart sections start unassigned — the user must explicitly pick which chart shows here,
     // rather than silently defaulting to whichever chart happens to be first in the list.
     if (type === "chart") el.config.chartId = null;
-    if (type === "kpi") el.config.kpiIds = (analysis?.kpis || []).slice(0, 4).map((k) => k.id);
+    if (type === "kpi") el.config.kpis = (analysis?.kpis || []).slice(0, 4).map((k) => ({ id: uid(), field: k.field, metric: k.metric, label: k.label, format: k.format }));
     if (type === "text") el.config.body = "Add your commentary here…";
     if (type === "summary") el.config.body = "";
     setReport((r) => ({ ...r, elements: [...r.elements, el] }));
@@ -1862,7 +1892,7 @@ function ElementEditor({ el, updateEl, dataset, analysis, charts }) {
     return <textarea className="dv-input" rows={3} value={el.config.body} onChange={(e) => updateEl(el.id, { config: { ...el.config, body: e.target.value } })} />;
   }
   if (el.type === "kpi") {
-    return <div style={{ fontSize: 12, color: "var(--text-2)" }}>{(analysis?.kpis || []).slice(0, 4).map((k) => k.label).join(" · ") || "No KPIs available"}</div>;
+    return <KpiEditor el={el} updateEl={updateEl} dataset={dataset} />;
   }
   if (el.type === "table") {
     const excluded = dataset.schema.filter((s) => s.sensitive).length;
@@ -1875,6 +1905,50 @@ function ElementEditor({ el, updateEl, dataset, analysis, charts }) {
     return <textarea className="dv-input" rows={3} placeholder="Write a short overview of overall performance, key findings and recommendations…" value={el.config.body || ""} onChange={(e) => updateEl(el.id, { config: { ...el.config, body: e.target.value } })} />;
   }
   return <div style={{ fontSize: 12, color: "var(--text-2)" }}>Cover page with report title, company and author</div>;
+}
+
+// Lets someone pick exactly which KPI cards appear in this section — column + metric + an
+// optional custom label — rather than being stuck with whatever computeKpis() auto-generated.
+function KpiEditor({ el, updateEl, dataset }) {
+  const [field, setField] = useState("");
+  const [metric, setMetric] = useState("sum");
+  const [label, setLabel] = useState("");
+  const numericCols = dataset.schema.filter((s) => !s.sensitive && ["number", "currency", "percentage"].includes(s.type));
+  const hasDateCol = dataset.schema.some((s) => s.type === "date");
+  const kpis = el.config.kpis || [];
+
+  const addKpi = () => {
+    if (!field) return;
+    const autoLabel = label.trim() || `${metric === "growth" ? "Growth of " : metric.charAt(0).toUpperCase() + metric.slice(1) + " "}${field}`;
+    const spec = { id: uid(), field, metric, label: autoLabel, format: kpiSpecFormat(dataset.schema, field, metric) };
+    updateEl(el.id, { config: { ...el.config, kpis: [...kpis, spec] } });
+    setField(""); setLabel("");
+  };
+  const removeKpi = (id) => updateEl(el.id, { config: { ...el.config, kpis: kpis.filter((k) => k.id !== id) } });
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {kpis.length === 0 && <div style={{ fontSize: 11.5, color: "var(--text-3)" }}>No KPI cards chosen yet — add one below.</div>}
+      {kpis.map((k) => (
+        <div key={k.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--paper)", borderRadius: 8, padding: "6px 10px" }}>
+          <span style={{ fontSize: 12 }}>{k.label} <span style={{ color: "var(--text-3)" }}>({k.metric} of {k.field})</span></span>
+          <button onClick={() => removeKpi(k.id)} style={{ border: "none", background: "none", cursor: "pointer", display: "flex" }}><X size={12} color="var(--rose)" /></button>
+        </div>
+      ))}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", borderTop: "1px dashed var(--border)", paddingTop: 8, marginTop: 2 }}>
+        <select className="dv-input" style={{ flex: "1 1 110px" }} value={field} onChange={(e) => setField(e.target.value)}>
+          <option value="">Column…</option>
+          {numericCols.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
+        </select>
+        <select className="dv-input" style={{ flex: "0 0 84px" }} value={metric} onChange={(e) => setMetric(e.target.value)}>
+          {["sum", "avg", "min", "max", "count"].map((m) => <option key={m} value={m}>{m}</option>)}
+          {hasDateCol && <option value="growth">growth</option>}
+        </select>
+        <input className="dv-input" style={{ flex: "1 1 100px" }} placeholder="Label (optional)" value={label} onChange={(e) => setLabel(e.target.value)} />
+        <button className="dv-btn dv-btn-primary dv-btn-sm" onClick={addKpi} disabled={!field}><Plus size={12} /></button>
+      </div>
+    </div>
+  );
 }
 
 /* ============================== REPORT PREVIEW / PDF ============================== */
@@ -1950,10 +2024,16 @@ function ReportPages({ report, dataset, analysis, charts, theme, pageW, pageH })
 function ReportElementBody({ el, dataset, analysis, charts, theme }) {
   const bfs = theme.bodyFontSize || 13;
   if (el.type === "kpi") {
-    const kpis = (analysis?.kpis || []).filter((k) => (el.config.kpiIds || []).includes(k.id));
+    // Specs the user picked in the KPI editor (column + metric + label) are computed live from
+    // the dataset here, so edits show up immediately without needing analysis to be recomputed.
+    const specs = (el.config.kpis && el.config.kpis.length)
+      ? el.config.kpis
+      : (analysis?.kpis || []).slice(0, 4).map((k) => ({ id: k.id, field: k.field, metric: k.metric, label: k.label, format: k.format }));
+    const cards = specs.map((s) => ({ ...s, value: computeSingleKpiValue(dataset.rows, dataset.schema, s.field, s.metric) }));
+    if (!cards.length) return <div style={{ fontSize: bfs, color: "#96A0AF" }}>No KPI cards chosen — pick a column and metric in the editor on the left.</div>;
     return (
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
-        {(kpis.length ? kpis : (analysis?.kpis || []).slice(0, 4)).map((k) => (
+        {cards.map((k) => (
           <div key={k.id} style={{ border: "1px solid #E3E6EC", borderRadius: 10, padding: 14 }}>
             <div style={{ fontSize: bfs - 2.5, color: "#5B6472", fontWeight: 600, marginBottom: 6 }}>{k.label}</div>
             <div className="dv-mono" style={{ fontSize: bfs + 7, fontWeight: 700, color: theme.accent }}>{formatValue(k.value, k.format)}</div>
