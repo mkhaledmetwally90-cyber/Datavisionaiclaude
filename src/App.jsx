@@ -1958,10 +1958,14 @@ function KpiEditor({ el, updateEl, dataset }) {
 // table — instead of always dumping the first 8 columns / first 10 rows.
 function TableEditor({ el, updateEl, dataset }) {
   const safeCols = dataset.schema.filter((s) => !s.sensitive).map((s) => s.name);
+  const catCols = dataset.schema.filter((s) => !s.sensitive && ["text", "boolean", "date"].includes(s.type)).map((s) => s.name);
+  const numCols = dataset.schema.filter((s) => !s.sensitive && ["number", "currency", "percentage"].includes(s.type)).map((s) => s.name);
   const selected = el.config.columns || safeCols.slice(0, 8);
   const rowLimit = el.config.rowLimit ?? 10;
   const sortBy = el.config.sortBy || "";
   const sortDir = el.config.sortDir || "desc";
+  const groupBy = el.config.groupBy || "";
+  const aggregation = el.config.aggregation || "sum";
   const excludedCount = dataset.schema.filter((s) => s.sensitive).length;
 
   const toggleCol = (name) => {
@@ -1973,15 +1977,32 @@ function TableEditor({ el, updateEl, dataset }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div>
+        <span className="dv-label">Group by (optional)</span>
+        <select className="dv-input" value={groupBy} onChange={(e) => setCfg({ groupBy: e.target.value })}>
+          <option value="">No grouping — show raw rows</option>
+          {catCols.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        {groupBy && <div style={{ fontSize: 10.5, color: "var(--text-3)", marginTop: 4 }}>Shows one row per "{groupBy}", with numeric columns below summarized by the aggregation you pick.</div>}
+      </div>
+      {groupBy && (
+        <div>
+          <span className="dv-label">Aggregation</span>
+          <select className="dv-input" value={aggregation} onChange={(e) => setCfg({ aggregation: e.target.value })}>
+            {["sum", "avg", "count", "min", "max"].map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </div>
+      )}
+      <div>
         <div className="dv-label" style={{ marginBottom: 5 }}>Columns ({selected.length} of {safeCols.length})</div>
         <div className="dv-scrollbar" style={{ display: "flex", flexWrap: "wrap", gap: 5, maxHeight: 96, overflowY: "auto" }}>
-          {safeCols.map((c) => (
+          {(groupBy ? numCols : safeCols).map((c) => (
             <button key={c} onClick={() => toggleCol(c)} className="dv-btn dv-btn-sm"
               style={{ border: `1.5px solid ${selected.includes(c) ? "var(--blue)" : "var(--border)"}`, background: selected.includes(c) ? "var(--blue-dim)" : "var(--surface)", color: "var(--text)" }}>
               {c}
             </button>
           ))}
         </div>
+        {groupBy && <div style={{ fontSize: 10.5, color: "var(--text-3)", marginTop: 4 }}>Only numeric columns can be aggregated — "{groupBy}" is always shown as the first column.</div>}
         {excludedCount > 0 && <div style={{ fontSize: 10.5, color: "var(--text-3)", marginTop: 4 }}>{excludedCount} personal-data column{excludedCount === 1 ? "" : "s"} always excluded.</div>}
       </div>
       <div style={{ display: "flex", gap: 8 }}>
@@ -1996,7 +2017,7 @@ function TableEditor({ el, updateEl, dataset }) {
           <span className="dv-label">Sort by</span>
           <select className="dv-input" value={sortBy} onChange={(e) => setCfg({ sortBy: e.target.value })}>
             <option value="">Original order</option>
-            {safeCols.map((c) => <option key={c} value={c}>{c}</option>)}
+            {(groupBy ? [groupBy, ...numCols] : safeCols).map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         {sortBy && (
@@ -2124,16 +2145,56 @@ function ReportElementBody({ el, dataset, analysis, charts, theme }) {
   );
   if (el.type === "table") {
     const allSafeCols = dataset.schema.filter((s) => !s.sensitive).map((s) => s.name);
+    const groupBy = el.config.groupBy && allSafeCols.includes(el.config.groupBy) ? el.config.groupBy : "";
+    const limit = el.config.rowLimit ?? 10;
+    const sortBy = el.config.sortBy;
+    const sortDir = el.config.sortDir || "desc";
+
+    if (groupBy) {
+      // Grouped mode: one row per unique value of "groupBy", numeric columns rolled up by the
+      // chosen aggregation (sum/avg/count/min/max) — e.g. total Quantity per RegionManager.
+      const numCols = dataset.schema.filter((s) => !s.sensitive && ["number", "currency", "percentage"].includes(s.type)).map((s) => s.name);
+      const cols = [groupBy, ...(el.config.columns?.length ? el.config.columns.filter((c) => numCols.includes(c)) : numCols)];
+      const agg = el.config.aggregation || "sum";
+      const aggregate = (vals) => {
+        const nums = vals.filter((v) => v !== null);
+        if (!nums.length) return null;
+        if (agg === "avg") return _.mean(nums);
+        if (agg === "count") return nums.length;
+        if (agg === "min") return _.min(nums);
+        if (agg === "max") return _.max(nums);
+        return _.sum(nums);
+      };
+      const grouped = _.groupBy(dataset.rows, (r) => r[groupBy]);
+      let rows = Object.entries(grouped).map(([key, rs]) => {
+        const row = { [groupBy]: key };
+        cols.slice(1).forEach((c) => {
+          const colType = dataset.schema.find((s) => s.name === c)?.type;
+          row[c] = aggregate(rs.map((r) => parseNumeric(r[c], colType)));
+        });
+        return row;
+      });
+      if (sortBy) rows = _.orderBy(rows, (r) => typeof r[sortBy] === "number" ? r[sortBy] : String(r[sortBy] ?? "").toLowerCase(), sortDir);
+      else rows = _.orderBy(rows, (r) => (r[cols[1]] ?? 0), sortDir);
+      if (limit > 0) rows = rows.slice(0, limit);
+      return (
+        <div style={{ overflow: "hidden" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: Math.max(9, bfs - 2.5) }}>
+            <thead><tr>{cols.map((c) => <th key={c} style={{ textAlign: "left", padding: "6px 8px", background: "#F5F6FA", fontWeight: 700 }}>{c}</th>)}</tr></thead>
+            <tbody>{rows.map((r, i) => <tr key={i}>{cols.map((c) => <td key={c} style={{ padding: "6px 8px", borderBottom: "1px solid #EEF0F4" }}>{typeof r[c] === "number" ? formatValue(r[c], dataset.schema.find((s) => s.name === c)?.type) : String(r[c] ?? "")}</td>)}</tr>)}</tbody>
+          </table>
+        </div>
+      );
+    }
+
     // Never let a stale sensitive column sneak back in even if it was selected before being
     // flagged — always intersect with the current safe list.
     const cols = (el.config.columns?.length ? el.config.columns : allSafeCols.slice(0, 8)).filter((c) => allSafeCols.includes(c));
-    const sortBy = el.config.sortBy;
     let rows = dataset.rows;
     if (sortBy) {
       const sortType = dataset.schema.find((s) => s.name === sortBy)?.type;
-      rows = _.orderBy(rows, (r) => sortType === "date" ? Date.parse(r[sortBy]) : (parseNumeric(r[sortBy], sortType) ?? String(r[sortBy]).toLowerCase()), el.config.sortDir || "desc");
+      rows = _.orderBy(rows, (r) => sortType === "date" ? Date.parse(r[sortBy]) : (parseNumeric(r[sortBy], sortType) ?? String(r[sortBy]).toLowerCase()), sortDir);
     }
-    const limit = el.config.rowLimit ?? 10;
     if (limit > 0) rows = rows.slice(0, limit);
     return (
       <div style={{ overflow: "hidden" }}>
