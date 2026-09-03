@@ -107,6 +107,17 @@ const currencySymbol = (code) => (CURRENCIES.find((c) => c.code === code) || CUR
 // a useEffect in the root App component.
 let currentCurrency = "USD";
 const setCurrentCurrency = (code) => { currentCurrency = code; };
+let currentDateFormat = "MM/DD/YYYY";
+const setCurrentDateFormat = (f) => { currentDateFormat = f; };
+function formatDateBySetting(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d)) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  const mm = pad(d.getMonth() + 1), dd = pad(d.getDate()), yyyy = d.getFullYear();
+  if (currentDateFormat === "DD/MM/YYYY") return `${dd}/${mm}/${yyyy}`;
+  if (currentDateFormat === "YYYY-MM-DD") return `${yyyy}-${mm}-${dd}`;
+  return `${mm}/${dd}/${yyyy}`;
+}
 
 // Excel's date serial epoch (Dec 30 1899). Converts a raw serial number to a real Date.
 function excelSerialToDate(serial) {
@@ -638,6 +649,68 @@ function LandingPage({ onStart }) {
 }
 
 /* ============================== APP SHELL ============================== */
+// Real (if partial) EN/AR translation dictionary — covers the persistent app chrome (sidebar,
+// top bar, dashboard, settings). Deeper workflow screens (Chart Editor, Report Builder controls)
+// aren't translated yet — that's a much larger follow-up, called out honestly in Settings below,
+// rather than pretending the whole app is localized when only direction was flipping before.
+const TRANSLATIONS = {
+  nav: {
+    dashboard: { en: "Dashboard", ar: "لوحة التحكم" },
+    "new-analysis": { en: "New Analysis", ar: "تحليل جديد" },
+    files: { en: "My Files", ar: "ملفاتي" },
+    charts: { en: "Charts", ar: "الشارتات" },
+    reports: { en: "Reports", ar: "التقارير" },
+    settings: { en: "Settings", ar: "الإعدادات" },
+  },
+  topbar: {
+    dashboard: { title: { en: "Dashboard", ar: "لوحة التحكم" }, sub: { en: "Your data analysis workspace", ar: "مساحة عمل تحليل بياناتك" } },
+    "new-analysis": { title: { en: "New Analysis", ar: "تحليل جديد" }, sub: { en: "Import, preview and analyze your dataset", ar: "استورد بياناتك، عاينها، وحلّلها" } },
+    charts: { title: { en: "Charts", ar: "الشارتات" }, sub: { en: "Recommended and customized visualizations", ar: "الرسومات المقترحة والمخصصة" } },
+    files: { title: { en: "My Files", ar: "ملفاتي" }, sub: { en: "Datasets you've uploaded", ar: "مجموعات البيانات اللي رفعتها" } },
+    reports: { title: { en: "My Reports", ar: "تقاريري" }, sub: { en: "Reports you've generated", ar: "التقارير اللي عملتها" } },
+    "report-builder": { title: { en: "Report Builder", ar: "إنشاء التقرير" }, sub: { en: "Assemble your report", ar: "ابني تقريرك" } },
+    "report-preview": { title: { en: "Report Preview", ar: "معاينة التقرير" }, sub: { en: "Exactly how your PDF will look", ar: "شكل ملف الـ PDF بالظبط" } },
+    settings: { title: { en: "Settings", ar: "الإعدادات" }, sub: { en: "Preferences and defaults", ar: "التفضيلات والإعدادات الافتراضية" } },
+  },
+  dash: {
+    welcome: { en: "Welcome back", ar: "أهلاً بيك" },
+    subtitle: { en: "Here's what's happening with your data.", ar: "ده اللي بيحصل في بياناتك." },
+    newAnalysis: { en: "New Analysis", ar: "تحليل جديد" },
+    totalAnalyses: { en: "Total Analyses", ar: "إجمالي التحليلات" },
+    totalReports: { en: "Total Reports", ar: "إجمالي التقارير" },
+    filesUploaded: { en: "Files Uploaded", ar: "الملفات المرفوعة" },
+    chartsCreated: { en: "Charts Created", ar: "الشارتات المُنشأة" },
+    recentFiles: { en: "Recent Files", ar: "أحدث الملفات" },
+    recentReports: { en: "Recent Reports", ar: "أحدث التقارير" },
+    noFilesTitle: { en: "No files yet", ar: "مفيش ملفات لسه" },
+    noFilesSub: { en: "Upload your first dataset to start analyzing your data.", ar: "ارفع أول ملف بيانات عشان تبدأ التحليل." },
+    uploadData: { en: "Upload data", ar: "ارفع بيانات" },
+    noReportsTitle: { en: "No reports yet", ar: "مفيش تقارير لسه" },
+    noReportsSub: { en: "Create your first report from an analysis.", ar: "اعمل أول تقرير من تحليل." },
+    analyzed: { en: "Analyzed", ar: "اتحلل" },
+    pending: { en: "Pending", ar: "في الانتظار" },
+  },
+  settings: {
+    company: { en: "Company", ar: "الشركة" },
+    companyName: { en: "Company name", ar: "اسم الشركة" },
+    defaultCurrency: { en: "Default currency", ar: "العملة الافتراضية" },
+    defaultDateFormat: { en: "Default date format", ar: "صيغة التاريخ الافتراضية" },
+    defaultTemplate: { en: "Default report template", ar: "قالب التقرير الافتراضي" },
+    appearance: { en: "Appearance", ar: "المظهر" },
+    light: { en: "Light", ar: "فاتح" },
+    dark: { en: "Dark", ar: "غامق" },
+    language: { en: "Language", ar: "اللغة" },
+    languageNote: { en: "Core navigation and settings are translated. Deeper workflow screens (chart & report editors) are still English — full coverage is on the roadmap.", ar: "التنقل الأساسي والإعدادات متاحة بالعربي. شاشات العمل التفصيلية (محرر الشارتات والتقارير) لسه بالإنجليزي — هنكمّل الترجمة تباعًا." },
+    save: { en: "Save Settings", ar: "حفظ الإعدادات" },
+    saved: { en: "Saved ✓", ar: "اتحفظت ✓" },
+    savedNote: { en: "Applies to new dates, currency labels, and this session's default report company/template. Nothing is persisted after a page reload yet.", ar: "بيتطبق على التواريخ الجديدة، رمز العملة، وشركة/قالب التقرير الافتراضي لهذه الجلسة. لسه مفيش حفظ دائم بعد تحديث الصفحة." },
+  },
+};
+function t(lang, path) {
+  const node = path.split(".").reduce((acc, k) => acc?.[k], TRANSLATIONS);
+  return node?.[lang] || node?.en || path;
+}
+
 const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
   { id: "new-analysis", label: "New Analysis", icon: Plus },
@@ -647,7 +720,7 @@ const NAV_ITEMS = [
   { id: "settings", label: "Settings", icon: SettingsIcon },
 ];
 
-function Sidebar({ route, setRoute }) {
+function Sidebar({ route, setRoute, lang }) {
   return (
     <div style={{ width: 224, background: "var(--ink)", flexShrink: 0, display: "flex", flexDirection: "column", padding: "18px 12px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "6px 10px 22px" }}>
@@ -659,7 +732,7 @@ function Sidebar({ route, setRoute }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {NAV_ITEMS.map((it) => (
           <div key={it.id} className={`dv-sidebar-link ${route === it.id || (route === "chart-builder" && it.id === "charts") || (["report-builder","report-preview"].includes(route) && it.id === "reports") || (route.startsWith("new-analysis") && it.id === "new-analysis") ? "active" : ""}`} onClick={() => setRoute(it.id)}>
-            <it.icon size={16} strokeWidth={2.2} /> {it.label}
+            <it.icon size={16} strokeWidth={2.2} /> {t(lang, `nav.${it.id}`)}
           </div>
         ))}
       </div>
@@ -690,24 +763,23 @@ function TopBar({ title, subtitle, theme, setTheme, lang, setLang }) {
 }
 
 /* ============================== DASHBOARD ============================== */
-function Dashboard({ files, reports, setRoute }) {
-  const t = { en: { title: "Dashboard", sub: "Your data analysis workspace" }, ar: { title: "لوحة التحكم", sub: "مساحة عمل تحليل البيانات" } };
+function Dashboard({ files, reports, setRoute, lang }) {
   return (
     <div className="dv-fade-in" style={{ padding: 28, maxWidth: 1140, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 800 }}>Welcome back</div>
-          <div style={{ fontSize: 13.5, color: "var(--text-2)" }}>Here's what's happening with your data.</div>
+          <div style={{ fontSize: 20, fontWeight: 800 }}>{t(lang, "dash.welcome")}</div>
+          <div style={{ fontSize: 13.5, color: "var(--text-2)" }}>{t(lang, "dash.subtitle")}</div>
         </div>
-        <button className="dv-btn dv-btn-primary" onClick={() => setRoute("new-analysis")}><Plus size={15} /> New Analysis</button>
+        <button className="dv-btn dv-btn-primary" onClick={() => setRoute("new-analysis")}><Plus size={15} /> {t(lang, "dash.newAnalysis")}</button>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14, marginBottom: 24 }}>
         {[
-          { label: "Total Analyses", value: files.filter(f => f.analyzed).length, icon: Sparkles, tone: "violet" },
-          { label: "Total Reports", value: reports.length, icon: FileText, tone: "teal" },
-          { label: "Files Uploaded", value: files.length, icon: FileSpreadsheet, tone: "blue" },
-          { label: "Charts Created", value: files.reduce((a, f) => a + (f.chartCount || 0), 0), icon: BarChart3, tone: "amber" },
+          { label: t(lang, "dash.totalAnalyses"), value: files.filter(f => f.analyzed).length, icon: Sparkles, tone: "violet" },
+          { label: t(lang, "dash.totalReports"), value: reports.length, icon: FileText, tone: "teal" },
+          { label: t(lang, "dash.filesUploaded"), value: files.length, icon: FileSpreadsheet, tone: "blue" },
+          { label: t(lang, "dash.chartsCreated"), value: files.reduce((a, f) => a + (f.chartCount || 0), 0), icon: BarChart3, tone: "amber" },
         ].map((k) => (
           <div key={k.label} className="dv-card" style={{ padding: 18 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
@@ -721,9 +793,9 @@ function Dashboard({ files, reports, setRoute }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "1.1fr .9fr", gap: 16 }}>
         <div className="dv-card" style={{ padding: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 14 }}>Recent Files</div>
+          <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 14 }}>{t(lang, "dash.recentFiles")}</div>
           {files.length === 0 ? (
-            <EmptyState icon={FileSpreadsheet} title="No files yet" subtitle="Upload your first dataset to start analyzing your data." action={<button className="dv-btn dv-btn-primary dv-btn-sm" onClick={() => setRoute("new-analysis")}>Upload data</button>} />
+            <EmptyState icon={FileSpreadsheet} title={t(lang, "dash.noFilesTitle")} subtitle={t(lang, "dash.noFilesSub")} action={<button className="dv-btn dv-btn-primary dv-btn-sm" onClick={() => setRoute("new-analysis")}>{t(lang, "dash.uploadData")}</button>} />
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {files.slice(0, 5).map((f) => (
@@ -735,16 +807,16 @@ function Dashboard({ files, reports, setRoute }) {
                       <div style={{ fontSize: 11.5, color: "var(--text-3)" }}>{f.rowCount} rows · {f.colCount} cols</div>
                     </div>
                   </div>
-                  <Badge tone={f.analyzed ? "teal" : "amber"}>{f.analyzed ? "Analyzed" : "Pending"}</Badge>
+                  <Badge tone={f.analyzed ? "teal" : "amber"}>{f.analyzed ? t(lang, "dash.analyzed") : t(lang, "dash.pending")}</Badge>
                 </div>
               ))}
             </div>
           )}
         </div>
         <div className="dv-card" style={{ padding: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 14 }}>Recent Reports</div>
+          <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 14 }}>{t(lang, "dash.recentReports")}</div>
           {reports.length === 0 ? (
-            <EmptyState icon={FileText} title="No reports yet" subtitle="Create your first report from an analysis." />
+            <EmptyState icon={FileText} title={t(lang, "dash.noReportsTitle")} subtitle={t(lang, "dash.noReportsSub")} />
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {reports.slice(0, 5).map((r) => (
@@ -2084,7 +2156,7 @@ function ReportPages({ report, dataset, analysis, charts, theme, pageW, pageH })
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#5B6472", borderTop: "1px solid #E3E6EC", paddingTop: 16 }}>
             <span>Prepared by {report.author || "—"}</span>
-            <span>{new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}</span>
+            <span>{formatDateBySetting(new Date())}</span>
           </div>
         </div>
       )}
@@ -2280,43 +2352,55 @@ function ReportsPage({ reports, setReports, setRoute, askConfirm }) {
   );
 }
 
-function SettingsPage({ settings, setSettings, theme, setTheme, lang, setLang }) {
+function SettingsPage({ settings, setSettings, theme, setTheme, lang, setLang, setReport }) {
+  const [justSaved, setJustSaved] = useState(false);
+  const handleSave = () => {
+    // Concretely apply Settings to the app: push company/template into the report currently
+    // being worked on (previously these two were completely disconnected from each other).
+    setReport((r) => ({ ...r, company: settings.company, template: settings.template }));
+    setJustSaved(true);
+    setTimeout(() => setJustSaved(false), 2500);
+  };
   return (
     <div className="dv-fade-in" style={{ padding: 28, maxWidth: 720, margin: "0 auto" }}>
-      <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 18 }}>Settings</div>
+      <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 18 }}>{t(lang, "topbar.settings.title")}</div>
       <div className="dv-card" style={{ padding: 20, marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 14, display: "flex", gap: 7, alignItems: "center" }}><Building2 size={15} /> Company</div>
+        <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 14, display: "flex", gap: 7, alignItems: "center" }}><Building2 size={15} /> {t(lang, "settings.company")}</div>
         <div style={{ display: "flex", gap: 14, marginBottom: 12 }}>
-          <Field label="Company name"><input className="dv-input" value={settings.company} onChange={(e) => setSettings((s) => ({ ...s, company: e.target.value }))} /></Field>
-          <Field label="Default currency">
+          <Field label={t(lang, "settings.companyName")}><input className="dv-input" value={settings.company} onChange={(e) => setSettings((s) => ({ ...s, company: e.target.value }))} /></Field>
+          <Field label={t(lang, "settings.defaultCurrency")}>
             <select className="dv-input" value={settings.currency} onChange={(e) => setSettings((s) => ({ ...s, currency: e.target.value }))}>
               {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
             </select>
           </Field>
         </div>
-        <div style={{ display: "flex", gap: 14 }}>
-          <Field label="Default date format">
+        <div style={{ display: "flex", gap: 14, marginBottom: 16 }}>
+          <Field label={t(lang, "settings.defaultDateFormat")}>
             <select className="dv-input" value={settings.dateFormat} onChange={(e) => setSettings((s) => ({ ...s, dateFormat: e.target.value }))}><option>MM/DD/YYYY</option><option>DD/MM/YYYY</option><option>YYYY-MM-DD</option></select>
           </Field>
-          <Field label="Default report template">
-            <select className="dv-input" value={settings.template} onChange={(e) => setSettings((s) => ({ ...s, template: e.target.value }))}>{TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
+          <Field label={t(lang, "settings.defaultTemplate")}>
+            <select className="dv-input" value={settings.template} onChange={(e) => setSettings((s) => ({ ...s, template: e.target.value }))}>{TEMPLATES.map((tpl) => <option key={tpl.id} value={tpl.id}>{tpl.name}</option>)}</select>
           </Field>
         </div>
+        <button className="dv-btn dv-btn-sm" style={{ background: justSaved ? "var(--teal)" : "var(--blue)", color: "#fff" }} onClick={handleSave}>
+          {justSaved ? <CheckCircle2 size={13} /> : <Download size={13} style={{ transform: "rotate(180deg)" }} />} {justSaved ? t(lang, "settings.saved") : t(lang, "settings.save")}
+        </button>
+        <div style={{ fontSize: 10.5, color: "var(--text-3)", marginTop: 8 }}>{t(lang, "settings.savedNote")}</div>
       </div>
       <div className="dv-card" style={{ padding: 20, marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 14, display: "flex", gap: 7, alignItems: "center" }}><Palette size={15} /> Appearance</div>
+        <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 14, display: "flex", gap: 7, alignItems: "center" }}><Palette size={15} /> {t(lang, "settings.appearance")}</div>
         <div style={{ display: "flex", gap: 10 }}>
-          <button className="dv-btn dv-btn-sm" style={{ border: `1.5px solid ${theme === "light" ? "var(--blue)" : "var(--border)"}` }} onClick={() => setTheme("light")}><Sun size={13} /> Light</button>
-          <button className="dv-btn dv-btn-sm" style={{ border: `1.5px solid ${theme === "dark" ? "var(--blue)" : "var(--border)"}` }} onClick={() => setTheme("dark")}><Moon size={13} /> Dark</button>
+          <button className="dv-btn dv-btn-sm" style={{ border: `1.5px solid ${theme === "light" ? "var(--blue)" : "var(--border)"}` }} onClick={() => setTheme("light")}><Sun size={13} /> {t(lang, "settings.light")}</button>
+          <button className="dv-btn dv-btn-sm" style={{ border: `1.5px solid ${theme === "dark" ? "var(--blue)" : "var(--border)"}` }} onClick={() => setTheme("dark")}><Moon size={13} /> {t(lang, "settings.dark")}</button>
         </div>
       </div>
       <div className="dv-card" style={{ padding: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 14, display: "flex", gap: 7, alignItems: "center" }}><Globe size={15} /> Language</div>
+        <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 14, display: "flex", gap: 7, alignItems: "center" }}><Globe size={15} /> {t(lang, "settings.language")}</div>
         <div style={{ display: "flex", gap: 10 }}>
           <button className="dv-btn dv-btn-sm" style={{ border: `1.5px solid ${lang === "en" ? "var(--blue)" : "var(--border)"}` }} onClick={() => setLang("en")}>English</button>
           <button className="dv-btn dv-btn-sm" style={{ border: `1.5px solid ${lang === "ar" ? "var(--blue)" : "var(--border)"}` }} onClick={() => setLang("ar")}>العربية</button>
         </div>
-        <div style={{ fontSize: 11.5, color: "var(--text-3)", marginTop: 10 }}>Full UI translation is architected but not yet complete in this prototype — the toggle flips text direction and the top bar label.</div>
+        <div style={{ fontSize: 11.5, color: "var(--text-3)", marginTop: 10 }}>{t(lang, "settings.languageNote")}</div>
       </div>
     </div>
   );
@@ -2348,6 +2432,7 @@ export default function DataVisionApp() {
 
   // Keep the module-level currency (read by formatValue everywhere) in sync with Settings.
   React.useEffect(() => { setCurrentCurrency(settings.currency); }, [settings.currency]);
+  React.useEffect(() => { setCurrentDateFormat(settings.dateFormat); }, [settings.dateFormat]);
 
   const handleFinishAnalysis = useCallback((result) => {
     setAnalysis(result);
@@ -2355,7 +2440,7 @@ export default function DataVisionApp() {
     if (dataset) {
       setFiles((fs) => {
         const exists = fs.find((f) => f.id === dataset.id);
-        const entry = { id: dataset.id, name: dataset.name, rowCount: dataset.rows.length, colCount: dataset.columns.length, analyzed: true, uploadDate: new Date().toLocaleDateString(), chartCount: result.recommendations.length };
+        const entry = { id: dataset.id, name: dataset.name, rowCount: dataset.rows.length, colCount: dataset.columns.length, analyzed: true, uploadDate: formatDateBySetting(new Date()), chartCount: result.recommendations.length };
         return exists ? fs.map((f) => f.id === dataset.id ? entry : f) : [entry, ...fs];
       });
     }
@@ -2389,14 +2474,14 @@ export default function DataVisionApp() {
   const onCustomizeChart = (chartId) => { setEditingChartId(chartId); setRoute("charts"); };
 
   const titles = {
-    dashboard: ["Dashboard", "Your data analysis workspace"],
-    "new-analysis": ["New Analysis", "Import, preview and analyze your dataset"],
-    charts: ["Charts", "Recommended and customized visualizations"],
-    files: ["My Files", "Datasets you've uploaded"],
-    reports: ["My Reports", "Reports you've generated"],
-    "report-builder": ["Report Builder", "Assemble your report"],
-    "report-preview": ["Report Preview", "Exactly how your PDF will look"],
-    settings: ["Settings", "Preferences and defaults"],
+    dashboard: [t(lang, "topbar.dashboard.title"), t(lang, "topbar.dashboard.sub")],
+    "new-analysis": [t(lang, "topbar.new-analysis.title"), t(lang, "topbar.new-analysis.sub")],
+    charts: [t(lang, "topbar.charts.title"), t(lang, "topbar.charts.sub")],
+    files: [t(lang, "topbar.files.title"), t(lang, "topbar.files.sub")],
+    reports: [t(lang, "topbar.reports.title"), t(lang, "topbar.reports.sub")],
+    "report-builder": [t(lang, "topbar.report-builder.title"), t(lang, "topbar.report-builder.sub")],
+    "report-preview": [t(lang, "topbar.report-preview.title"), t(lang, "topbar.report-preview.sub")],
+    settings: [t(lang, "topbar.settings.title"), t(lang, "topbar.settings.sub")],
   };
 
   if (route === "landing") {
@@ -2411,18 +2496,18 @@ export default function DataVisionApp() {
       <GlobalStyle />
       <style>{`@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>
       <ConfirmDialog state={confirmState} onCancel={() => setConfirmState(null)} />
-      <Sidebar route={route} setRoute={goRoute} />
+      <Sidebar route={route} setRoute={goRoute} lang={lang} />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         {!isFullBleed && !isPreview && <TopBar title={titles[route]?.[0] || ""} subtitle={titles[route]?.[1]} theme={theme} setTheme={setTheme} lang={lang} setLang={setLang} />}
         <div className="dv-scrollbar" style={{ flex: 1, overflowY: isFullBleed ? "hidden" : "auto", minHeight: 0 }}>
-          {route === "dashboard" && <Dashboard files={files} reports={reports} setRoute={goRoute} />}
+          {route === "dashboard" && <Dashboard files={files} reports={reports} setRoute={goRoute} lang={lang} />}
           {route === "new-analysis" && <NewAnalysis dataset={dataset} setDataset={setDataset} onFinish={handleFinishAnalysis} setRoute={goRoute} onAddToReport={addChartToReport} onCustomizeChart={onCustomizeChart} />}
           {route === "charts" && <ChartsPage charts={charts} setCharts={setCharts} dataset={dataset} onAddToReport={addChartToReport} editingId={editingChartId} setEditingId={setEditingChartId} />}
           {route === "files" && <FilesPage files={files} setFiles={setFiles} setRoute={goRoute} askConfirm={askConfirm} />}
           {route === "reports" && <ReportsPage reports={reports} setReports={setReports} setRoute={goRoute} askConfirm={askConfirm} />}
           {route === "report-builder" && <ReportBuilder report={report} setReport={setReport} dataset={dataset} analysis={analysis} charts={charts} setRoute={goRoute} askConfirm={askConfirm} />}
           {route === "report-preview" && <ReportPreview report={report} dataset={dataset} analysis={analysis} charts={charts} setRoute={goRoute} />}
-          {route === "settings" && <SettingsPage settings={settings} setSettings={setSettings} theme={theme} setTheme={setTheme} lang={lang} setLang={setLang} />}
+          {route === "settings" && <SettingsPage settings={settings} setSettings={setSettings} theme={theme} setTheme={setTheme} lang={lang} setLang={setLang} setReport={setReport} />}
         </div>
       </div>
     </div>
