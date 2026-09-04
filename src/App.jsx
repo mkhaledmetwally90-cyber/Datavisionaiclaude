@@ -512,6 +512,19 @@ function aggregateChart(rows, schema, cfg) {
   if (cfg.filters.topN) data = _.orderBy(data, cfg.groupBy ? series[0] : "value", "desc").slice(0, Number(cfg.filters.topN));
   if (cfg.filters.bottomN) data = _.orderBy(data, cfg.groupBy ? series[0] : "value", "asc").slice(0, Number(cfg.filters.bottomN));
 
+  // 100% stacked: rescale each bar's own segments to sum to 100, so every bar is the same height
+  // and only the proportions differ — distinct from the generic "Percentage" number format, which
+  // shows each segment's share of the WHOLE chart instead of just its own bar.
+  if (cfg.type === "stacked-bar" && cfg.appearance.stackedPercent && series.length) {
+    data = data.map((row) => {
+      const rowTotal = _.sum(series.map((s) => Number(row[s]) || 0));
+      if (!rowTotal) return row;
+      const next = { name: row.name };
+      series.forEach((s) => { next[s] = (Number(row[s]) || 0) / rowTotal * 100; });
+      return next;
+    });
+  }
+
   return { data, series };
 }
 
@@ -1655,7 +1668,15 @@ function ChartBuilder({ chart, dataset, onSave, onCancel, onAddToReport }) {
                 <input type="checkbox" checked={cfg.appearance[k]} onChange={(e) => set(`appearance.${k}`, e.target.checked)} /> {l}
               </label>
             ))}
+            {cfg.type === "stacked-bar" && cfg.groupBy && (
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+                <input type="checkbox" checked={!!cfg.appearance.stackedPercent} onChange={(e) => set("appearance.stackedPercent", e.target.checked)} /> 100% stacked
+              </label>
+            )}
           </div>
+          {cfg.type === "stacked-bar" && cfg.appearance.stackedPercent && (
+            <div style={{ fontSize: 11, color: "var(--text-3)", lineHeight: 1.4 }}>Every bar is rescaled to its own 100% — each segment shows its share within that bar, not the whole chart.</div>
+          )}
           <Field label="Orientation">
             <select className="dv-input" value={cfg.appearance.orientation} onChange={(e) => set("appearance.orientation", e.target.value)}><option value="vertical">Vertical (Column)</option><option value="horizontal">Horizontal (Bar)</option></select>
           </Field>
@@ -1717,7 +1738,22 @@ function FullChart({ cfg, data, series }) {
   const tick = { fontSize: fs };
   const grid = cfg.appearance.gridlines ? <CartesianGrid stroke="var(--border-2)" /> : null;
   const legend = cfg.appearance.legend ? <Legend wrapperStyle={{ fontSize: fs }} /> : null;
-  const labelFmt = (v) => cfg.appearance.numberFormat === "currency" ? currencySymbol(currentCurrency) + Number(v).toLocaleString() : cfg.appearance.numberFormat === "percentage" ? v + "%" : Number(v).toLocaleString();
+  const isStackedPercent = cfg.type === "stacked-bar" && cfg.appearance.stackedPercent && series.length;
+  const labelFmt = (v) => {
+    // 100% stacked mode already normalized every value to 0–100 in aggregateChart — just format it,
+    // don't run it through the "share of everything" math below (that's a different percentage).
+    if (isStackedPercent) return Number(v).toFixed(1) + "%";
+    if (cfg.appearance.numberFormat === "currency") return currencySymbol(currentCurrency) + Number(v).toLocaleString();
+    if (cfg.appearance.numberFormat === "percentage") {
+      // "Percentage" means this value's share of everything shown in the chart — not the raw
+      // number with a "%" glued on (which is how this used to render "$872" as "872%").
+      const grandTotal = series.length
+        ? _.sum(data.flatMap((d) => series.map((s) => Number(d[s]) || 0)))
+        : _.sumBy(data, (d) => Number(d.value ?? d.y) || 0);
+      return grandTotal ? ((Number(v) / grandTotal) * 100).toFixed(1) + "%" : "0%";
+    }
+    return Number(v).toLocaleString();
+  };
   const dl = cfg.appearance.dataLabels;
 
   if (cfg.type === "scatter") return (
@@ -1770,7 +1806,7 @@ function FullChart({ cfg, data, series }) {
   );
   return (
     <ResponsiveContainer><BarChart data={data} layout={cfg.appearance.orientation === "horizontal" ? "vertical" : "horizontal"}>{grid}
-      {cfg.appearance.orientation === "horizontal" ? <><XAxis type="number" tick={tick} tickFormatter={labelFmt} /><YAxis type="category" dataKey="name" tick={tick} width={90} /></> : <><XAxis dataKey="name" tick={tick} /><YAxis tick={tick} tickFormatter={labelFmt} /></>}
+      {cfg.appearance.orientation === "horizontal" ? <><XAxis type="number" tick={tick} tickFormatter={labelFmt} domain={isStackedPercent ? [0, 100] : undefined} /><YAxis type="category" dataKey="name" tick={tick} width={90} /></> : <><XAxis dataKey="name" tick={tick} /><YAxis tick={tick} tickFormatter={labelFmt} domain={isStackedPercent ? [0, 100] : undefined} /></>}
       <Tooltip formatter={labelFmt} />{legend}
       {series.length ? series.map((s, i) => (
         <Bar key={s} dataKey={s} stackId={cfg.type === "stacked-bar" ? "a" : undefined} fill={palette[i % palette.length]} radius={[3, 3, 0, 0]}>
