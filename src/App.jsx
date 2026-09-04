@@ -757,11 +757,23 @@ const TRANSLATIONS = {
     goToReportBuilder: { en: "Go to Report Builder", ar: "روح لإنشاء التقرير" },
     noRecsTitle: { en: "No chart recommendations yet", ar: "لسه مفيش شارتات مقترحة" },
     noRecsSub: { en: "Analyze your dataset to generate chart recommendations.", ar: "حلّل بياناتك عشان تطلع شارتات مقترحة." },
+    multiSheetTitle: { en: "This file has {n} sheets", ar: "الملف ده فيه {n} صفحات" },
+    multiSheetSub: { en: "Choose which one to analyze — you can always upload again to pick a different sheet.", ar: "اختار الصفحة اللي عايز تحللها — تقدر ترفع الملف تاني في أي وقت وتختار صفحة تانية." },
+    qualityNotes: { en: "Data quality notes:", ar: "ملاحظات جودة البيانات:" },
+    missingValuesDetected: { en: "{n} missing value(s) detected.", ar: "اتكشف {n} قيمة ناقصة." },
+    duplicateRowsFound: { en: "{n} duplicate row(s) found.", ar: "اتلاقى {n} صف مكرر." },
+    piiDetected: { en: "Personal data detected and protected:", ar: "بيانات شخصية اتكشفت واتحمت:" },
+    piiDetail: { en: "These columns are masked below and automatically left out of KPIs, insights, charts, and report tables. Click the shield icon next to a column name if this was flagged by mistake.", ar: "الأعمدة دي متقنّعة تحت ومستبعدة تلقائيًا من المؤشرات والرؤى والشارتات وجداول التقرير. دوس على أيقونة الدرع جنب اسم العمود لو اتصنّف غلط." },
   },
 };
 function t(lang, path) {
   const node = path.split(".").reduce((acc, k) => acc?.[k], TRANSLATIONS);
   return node?.[lang] || node?.en || path;
+}
+function tf(lang, path, vars) {
+  let s = t(lang, path);
+  Object.entries(vars || {}).forEach(([k, v]) => { s = s.replace(`{${k}}`, v); });
+  return s;
 }
 
 const NAV_ITEMS = [
@@ -893,7 +905,7 @@ function Dashboard({ files, reports, setRoute, lang }) {
 }
 
 /* ============================== NEW ANALYSIS WIZARD ============================== */
-function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, onCustomizeChart, lang }) {
+function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, onCustomizeChart, lang, onFileImported }) {
   const [step, setStep] = useState(dataset ? (dataset.schema ? 2 : 1) : 0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -918,7 +930,11 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
     }
     const rows = normalizeSerialDateColumns(rawRows, columns);
     const schema = buildSchema(rows, columns);
-    setDataset({ name: fileName, sheetName: sheetName || "Sheet1", rows, columns, schema, id: uid() });
+    const newDataset = { name: fileName, sheetName: sheetName || "Sheet1", rows, columns, schema, id: uid() };
+    setDataset(newDataset);
+    // Register the file in "My Files" the moment it's successfully imported — not only after the
+    // person finishes the whole wizard — so it's never "lost" if they navigate away mid-flow.
+    onFileImported?.(newDataset);
     setPendingWorkbook(null);
     setLoading(false);
     setStep(1);
@@ -1119,8 +1135,8 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
           </div>
           {pendingWorkbook && (
             <div className="dv-card dv-fade-in" style={{ padding: 18, marginBottom: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>This file has {pendingWorkbook.wb.SheetNames.length} sheets</div>
-              <div style={{ fontSize: 12.5, color: "var(--text-2)", marginBottom: 12 }}>Choose which one to analyze — you can always upload again to pick a different sheet.</div>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{tf(lang, "wizard.multiSheetTitle", { n: pendingWorkbook.wb.SheetNames.length })}</div>
+              <div style={{ fontSize: 12.5, color: "var(--text-2)", marginBottom: 12 }}>{t(lang, "wizard.multiSheetSub")}</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {pendingWorkbook.wb.SheetNames.map((name) => (
                   <button key={name} className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => { setLoading(true); loadSheet(pendingWorkbook.wb, name, pendingWorkbook.fileName); }}>
@@ -1168,8 +1184,8 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
               <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                 <AlertTriangle size={16} color="var(--amber)" style={{ flexShrink: 0, marginTop: 1 }} />
                 <div style={{ fontSize: 13 }}>
-                  <b>Data quality notes:</b> {quality.missing > 0 && `${quality.missing} missing value${quality.missing === 1 ? "" : "s"} detected. `}
-                  {quality.duplicates > 0 && `${quality.duplicates} duplicate row${quality.duplicates === 1 ? "" : "s"} found.`}
+                  <b>{t(lang, "wizard.qualityNotes")}</b> {quality.missing > 0 && tf(lang, "wizard.missingValuesDetected", { n: quality.missing }) + " "}
+                  {quality.duplicates > 0 && tf(lang, "wizard.duplicateRowsFound", { n: quality.duplicates })}
                 </div>
               </div>
             </div>
@@ -1180,7 +1196,7 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
               <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                 <Info size={16} color="var(--rose)" style={{ flexShrink: 0, marginTop: 1 }} />
                 <div style={{ fontSize: 13 }}>
-                  <b>Personal data detected and protected:</b> {dataset.schema.filter((s) => s.sensitive).map((s) => s.name).join(", ")}. These columns are masked below and automatically left out of KPIs, insights, charts, and report tables. Click the shield icon next to a column name if this was flagged by mistake.
+                  <b>{t(lang, "wizard.piiDetected")}</b> {dataset.schema.filter((s) => s.sensitive).map((s) => s.name).join(", ")}. {t(lang, "wizard.piiDetail")}
                 </div>
               </div>
             </div>
@@ -1710,6 +1726,10 @@ function FullChart({ cfg, data, series }) {
     </ScatterChart></ResponsiveContainer>
   );
   if (cfg.type === "pie" || cfg.type === "donut") {
+    // "Percentage" here means share of the whole pie, not the raw value with a % sign stapled on
+    // — a $872 slice of a $10,000 total should read "8.7%", not "872%".
+    const total = _.sumBy(data, "value") || 1;
+    const pieFmt = cfg.appearance.numberFormat === "percentage" ? (v) => ((v / total) * 100).toFixed(1) + "%" : labelFmt;
     // Custom label renderer: short text (value only — the name is already in the legend/tooltip),
     // positioned outside the ring along its own slice angle so labels fan out instead of stacking.
     const RADIAN = Math.PI / 180;
@@ -1718,13 +1738,13 @@ function FullChart({ cfg, data, series }) {
       const r = or_ + 16;
       const x = cx + r * Math.cos(-midAngle * RADIAN);
       const y = cy + r * Math.sin(-midAngle * RADIAN);
-      return <text x={x} y={y} fill={palette[index % palette.length]} textAnchor={x > cx ? "start" : "end"} dominantBaseline="central" fontSize={fs} fontWeight={600}>{labelFmt(value)}</text>;
+      return <text x={x} y={y} fill={palette[index % palette.length]} textAnchor={x > cx ? "start" : "end"} dominantBaseline="central" fontSize={fs} fontWeight={600}>{pieFmt(value)}</text>;
     };
     return (
       <ResponsiveContainer><PieChart margin={{ top: 22, right: 70, bottom: 22, left: 70 }}>
         <Pie data={data} dataKey="value" nameKey="name" innerRadius={cfg.type === "donut" ? 62 : 0} outerRadius={104} label={dl ? renderLabel : false} labelLine={dl ? { stroke: "var(--border)" } : false} minAngle={3}>
           {data.map((_, i) => <Cell key={i} fill={palette[i % palette.length]} />)}
-        </Pie><Tooltip formatter={labelFmt} />{legend}
+        </Pie><Tooltip formatter={pieFmt} />{legend}
       </PieChart></ResponsiveContainer>
     );
   }
@@ -1754,7 +1774,15 @@ function FullChart({ cfg, data, series }) {
       <Tooltip formatter={labelFmt} />{legend}
       {series.length ? series.map((s, i) => (
         <Bar key={s} dataKey={s} stackId={cfg.type === "stacked-bar" ? "a" : undefined} fill={palette[i % palette.length]} radius={[3, 3, 0, 0]}>
-          {dl && <LabelList dataKey={s} position={cfg.appearance.orientation === "horizontal" ? "right" : "top"} style={{ fontSize: fs - 1, fill: "var(--text-2)" }} formatter={labelFmt} />}
+          {dl && (
+            cfg.type === "stacked-bar"
+              // "top" places each segment's label right at the boundary line where the next
+              // segment stacks on top of it, so every label except the topmost gets visually
+              // covered. "center" (inside its own colored slice) keeps every segment's label
+              // readable regardless of stacking order.
+              ? <LabelList dataKey={s} position="center" style={{ fontSize: fs - 1, fill: "#fff", fontWeight: 600 }} formatter={labelFmt} />
+              : <LabelList dataKey={s} position={cfg.appearance.orientation === "horizontal" ? "right" : "top"} style={{ fontSize: fs - 1, fill: "var(--text-2)" }} formatter={labelFmt} />
+          )}
         </Bar>
       )) : (
         <Bar dataKey="value" fill={palette[0]} radius={[3, 3, 0, 0]}>
@@ -2493,11 +2521,21 @@ export default function DataVisionApp() {
     if (dataset) {
       setFiles((fs) => {
         const exists = fs.find((f) => f.id === dataset.id);
-        const entry = { id: dataset.id, name: dataset.name, rowCount: dataset.rows.length, colCount: dataset.columns.length, analyzed: true, uploadDate: formatDateBySetting(new Date()), chartCount: result.recommendations.length };
+        const entry = { id: dataset.id, name: dataset.name, rowCount: dataset.rows.length, colCount: dataset.columns.length, analyzed: true, uploadDate: exists?.uploadDate || formatDateBySetting(new Date()), chartCount: result.recommendations.length };
         return exists ? fs.map((f) => f.id === dataset.id ? entry : f) : [entry, ...fs];
       });
     }
   }, [dataset]);
+
+  // Called the moment a file is successfully imported (before analysis even runs), so it shows up
+  // in "My Files" right away instead of only after the person finishes the whole wizard.
+  const registerFile = useCallback((ds) => {
+    setFiles((fs) => {
+      const exists = fs.find((f) => f.id === ds.id);
+      if (exists) return fs;
+      return [{ id: ds.id, name: ds.name, rowCount: ds.rows.length, colCount: ds.columns.length, analyzed: false, uploadDate: formatDateBySetting(new Date()), chartCount: 0 }, ...fs];
+    });
+  }, []);
 
   const addChartToReport = (chart) => {
     setCharts((cs) => cs.map((c) => c.id === chart.id ? { ...c, addedToReport: true } : c));
@@ -2520,6 +2558,14 @@ export default function DataVisionApp() {
 
   const goRoute = (r) => {
     if (r === "report-builder" || r === "report-preview") saveReportSnapshot();
+    // Sidebar / dashboard "New Analysis" is always a request to start over — without this,
+    // clicking it just silently resumed whatever dataset was already loaded and dropped the
+    // person back on the step they'd last reached, with no way to actually begin a new upload.
+    if (r === "new-analysis" && route !== "new-analysis") {
+      setDataset(null);
+      setAnalysis(null);
+      setCharts([]);
+    }
     setEditingChartId(null);
     setRoute(r);
   };
@@ -2554,7 +2600,7 @@ export default function DataVisionApp() {
         {!isFullBleed && !isPreview && <TopBar title={titles[route]?.[0] || ""} subtitle={titles[route]?.[1]} theme={theme} setTheme={setTheme} lang={lang} setLang={setLang} />}
         <div className="dv-scrollbar" style={{ flex: 1, overflowY: isFullBleed ? "hidden" : "auto", minHeight: 0 }}>
           {route === "dashboard" && <Dashboard files={files} reports={reports} setRoute={goRoute} lang={lang} />}
-          {route === "new-analysis" && <NewAnalysis dataset={dataset} setDataset={setDataset} onFinish={handleFinishAnalysis} setRoute={goRoute} onAddToReport={addChartToReport} onCustomizeChart={onCustomizeChart} lang={lang} />}
+          {route === "new-analysis" && <NewAnalysis dataset={dataset} setDataset={setDataset} onFinish={handleFinishAnalysis} setRoute={goRoute} onAddToReport={addChartToReport} onCustomizeChart={onCustomizeChart} lang={lang} onFileImported={registerFile} />}
           {route === "charts" && <ChartsPage charts={charts} setCharts={setCharts} dataset={dataset} onAddToReport={addChartToReport} editingId={editingChartId} setEditingId={setEditingChartId} />}
           {route === "files" && <FilesPage files={files} setFiles={setFiles} setRoute={goRoute} askConfirm={askConfirm} />}
           {route === "reports" && <ReportsPage reports={reports} setReports={setReports} setRoute={goRoute} askConfirm={askConfirm} />}
