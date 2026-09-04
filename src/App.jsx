@@ -581,9 +581,9 @@ const Stepper = ({ steps, current }) => (
 );
 
 /* ============================== LANDING PAGE ============================== */
-function LandingPage({ onStart }) {
+function LandingPage({ onStart, lang, setLang }) {
   return (
-    <div style={{ background: "var(--ink)", minHeight: "100%", color: "#fff" }} className="dv-fade-in">
+    <div style={{ background: "var(--ink)", minHeight: "100%", color: "#fff" }} className="dv-fade-in" dir={lang === "ar" ? "rtl" : "ltr"}>
       <div style={{ maxWidth: 1180, margin: "0 auto", padding: "26px 28px 0" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
@@ -592,24 +592,27 @@ function LandingPage({ onStart }) {
             </div>
             <span className="dv-serif" style={{ fontSize: 18, fontWeight: 600 }}>DataVision AI</span>
           </div>
-          <button className="dv-btn dv-btn-primary" onClick={onStart}>Start Analyzing <ArrowRight size={15} /></button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button className="dv-btn dv-btn-sm" style={{ background: "rgba(255,255,255,.06)", color: "#fff", border: "1px solid rgba(255,255,255,.15)" }} onClick={() => setLang(lang === "en" ? "ar" : "en")}><Globe size={13} /> {lang === "en" ? "EN" : "AR"}</button>
+            <button className="dv-btn dv-btn-primary" onClick={onStart}>{t(lang, "landing.startAnalyzing")} <ArrowRight size={15} /></button>
+          </div>
         </div>
       </div>
 
       <div style={{ maxWidth: 980, margin: "0 auto", padding: "72px 28px 40px", textAlign: "center" }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 999, padding: "6px 13px", fontSize: 12, fontWeight: 600, color: "#B9C2DB", marginBottom: 26 }}>
-          <Sparkles size={13} color="#7C5CFA" /> Spreadsheets in. Boardroom-ready reports out.
+          <Sparkles size={13} color="#7C5CFA" /> {t(lang, "landing.badge")}
         </div>
         <h1 className="dv-serif" style={{ fontSize: "clamp(34px,5.6vw,58px)", lineHeight: 1.08, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 20 }}>
-          Turn Your Spreadsheets Into<br />Powerful Reports
+          {t(lang, "landing.headline1")}<br />{t(lang, "landing.headline2")}
         </h1>
         <p style={{ fontSize: 17, color: "#9BA7C4", maxWidth: 560, margin: "0 auto 34px", lineHeight: 1.6 }}>
-          Upload Excel or connect Google Sheets and automatically transform your data into charts, KPIs and professional PDF reports.
+          {t(lang, "landing.subtitle")}
         </p>
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginBottom: 64 }}>
-          <button className="dv-btn dv-btn-primary" style={{ padding: "12px 22px", fontSize: 14.5 }} onClick={onStart}>Start Analyzing <ArrowRight size={16} /></button>
+          <button className="dv-btn dv-btn-primary" style={{ padding: "12px 22px", fontSize: 14.5 }} onClick={onStart}>{t(lang, "landing.startAnalyzing")} <ArrowRight size={16} /></button>
           <button className="dv-btn" style={{ padding: "12px 22px", fontSize: 14.5, background: "rgba(255,255,255,.06)", color: "#fff", border: "1px solid rgba(255,255,255,.15)" }} onClick={onStart}>
-            <Upload size={15} /> Upload Your Data
+            <Upload size={15} /> {t(lang, "landing.uploadData")}
           </button>
         </div>
 
@@ -631,9 +634,9 @@ function LandingPage({ onStart }) {
 
       <div style={{ maxWidth: 1080, margin: "0 auto", padding: "0 28px 90px", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 16 }}>
         {[
-          { icon: Sparkles, title: "AI Data Analysis", body: "Automatic column detection, KPI extraction and plain-language insights generated straight from your dataset.", tone: "#7C5CFA" },
-          { icon: BarChart3, title: "Interactive Charts", body: "Chart types recommended based on your data's shape — then fully customizable with a live preview.", tone: "#2F5FED" },
-          { icon: FileText, title: "Professional PDF Reports", body: "Drag together KPIs, charts and narrative into a branded, print-ready report in minutes.", tone: "#0EA894" },
+          { icon: Sparkles, title: t(lang, "landing.f1Title"), body: t(lang, "landing.f1Body"), tone: "#7C5CFA" },
+          { icon: BarChart3, title: t(lang, "landing.f2Title"), body: t(lang, "landing.f2Body"), tone: "#2F5FED" },
+          { icon: FileText, title: t(lang, "landing.f3Title"), body: t(lang, "landing.f3Body"), tone: "#0EA894" },
         ].map((f) => (
           <div key={f.title} style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.10)", borderRadius: 16, padding: 24, textAlign: "left" }}>
             <div style={{ width: 40, height: 40, borderRadius: 11, background: "rgba(255,255,255,.08)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
@@ -704,6 +707,56 @@ const TRANSLATIONS = {
     save: { en: "Save Settings", ar: "حفظ الإعدادات" },
     saved: { en: "Saved ✓", ar: "اتحفظت ✓" },
     savedNote: { en: "Applies to new dates, currency labels, and this session's default report company/template. Nothing is persisted after a page reload yet.", ar: "بيتطبق على التواريخ الجديدة، رمز العملة، وشركة/قالب التقرير الافتراضي لهذه الجلسة. لسه مفيش حفظ دائم بعد تحديث الصفحة." },
+  },
+  landing: {
+    badge: { en: "Spreadsheets in. Boardroom-ready reports out.", ar: "جداول بيانات تدخل. تقارير جاهزة لغرفة الاجتماعات تطلع." },
+    headline1: { en: "Turn Your Spreadsheets Into", ar: "حوّل جداول بياناتك إلى" },
+    headline2: { en: "Powerful Reports", ar: "تقارير قوية" },
+    subtitle: { en: "Upload Excel or connect Google Sheets and automatically transform your data into charts, KPIs and professional PDF reports.", ar: "ارفع ملف إكسل أو اربط جوجل شيتس، وحوّل بياناتك تلقائيًا لشارتات ومؤشرات أداء وتقارير PDF احترافية." },
+    startAnalyzing: { en: "Start Analyzing", ar: "ابدأ التحليل" },
+    uploadData: { en: "Upload Your Data", ar: "ارفع بياناتك" },
+    f1Title: { en: "AI Data Analysis", ar: "تحليل بيانات ذكي" },
+    f1Body: { en: "Automatic column detection, KPI extraction and plain-language insights generated straight from your dataset.", ar: "اكتشاف تلقائي للأعمدة، استخراج مؤشرات الأداء، ورؤى بلغة بسيطة تُستخرج من بياناتك مباشرة." },
+    f2Title: { en: "Interactive Charts", ar: "شارتات تفاعلية" },
+    f2Body: { en: "Chart types recommended based on your data's shape — then fully customizable with a live preview.", ar: "أنواع شارتات مقترحة حسب شكل بياناتك — وقابلة للتخصيص بالكامل مع معاينة حية." },
+    f3Title: { en: "Professional PDF Reports", ar: "تقارير PDF احترافية" },
+    f3Body: { en: "Drag together KPIs, charts and narrative into a branded, print-ready report in minutes.", ar: "اجمع مؤشرات الأداء والشارتات والنصوص في تقرير جاهز للطباعة وبهوية شركتك في دقائق." },
+  },
+  wizard: {
+    stepImport: { en: "Import", ar: "استيراد" },
+    stepPreview: { en: "Preview & Quality", ar: "معاينة وجودة" },
+    stepAnalysis: { en: "Analysis", ar: "تحليل" },
+    stepCharts: { en: "Chart Recommendations", ar: "شارتات مقترحة" },
+    uploadTitle: { en: "Upload a file", ar: "ارفع ملف" },
+    uploadSub: { en: "Drag & drop or click to browse", ar: "اسحب وأفلت أو دوس هنا تختار الملف" },
+    gsheetTitle: { en: "Connect Google Sheets", ar: "اربط جوجل شيتس" },
+    gsheetSub: { en: "Paste a shared Google Sheets URL", ar: "الصق رابط شيت متاح للمشاركة" },
+    connectBtn: { en: "Connect Google Sheet", ar: "اربط الشيت" },
+    connecting: { en: "Connecting…", ar: "جاري الربط…" },
+    gsheetNote: { en: "Sharing must be set to \"Anyone with the link can view\". To pick a specific tab, open that tab in Sheets first, then copy its URL.", ar: "لازم تكون إعدادات المشاركة \"أي حد معاه الرابط يقدر يشوف\". لو عايز صفحة معيّنة، افتحها في الشيت الأول وبعدين انسخ رابطها." },
+    readingFile: { en: "Reading your file…", ar: "بنقرا الملف…" },
+    fileName: { en: "File name", ar: "اسم الملف" },
+    sheetName: { en: "Sheet name", ar: "اسم الصفحة" },
+    rows: { en: "Rows", ar: "الصفوف" },
+    columns: { en: "Columns", ar: "الأعمدة" },
+    missing: { en: "Missing", ar: "قيم ناقصة" },
+    duplicates: { en: "Duplicates", ar: "صفوف مكررة" },
+    numericCols: { en: "Numeric cols", ar: "أعمدة رقمية" },
+    dateCols: { en: "Date cols", ar: "أعمدة تاريخ" },
+    searchRows: { en: "Search rows…", ar: "دوّر في الصفوف…" },
+    typeHint: { en: "Wrong type detected? Change the dropdown next to any column name below.", ar: "النوع اتكشف غلط؟ غيّره من القايمة جنب اسم أي عمود تحت." },
+    back: { en: "Back", ar: "رجوع" },
+    analyzeData: { en: "Analyze Data", ar: "حلّل البيانات" },
+    analyzing: { en: "Analyzing…", ar: "بيحلل…" },
+    automaticInsights: { en: "Automatic Insights", ar: "رؤى تلقائية" },
+    seeChartRecs: { en: "See Chart Recommendations", ar: "شوف الشارتات المقترحة" },
+    addToReport: { en: "Add to Report", ar: "ضيف للتقرير" },
+    added: { en: "Added", ar: "اتضاف" },
+    customize: { en: "Customize", ar: "خصّص" },
+    backToDashboard: { en: "Back to Dashboard", ar: "رجوع للوحة التحكم" },
+    goToReportBuilder: { en: "Go to Report Builder", ar: "روح لإنشاء التقرير" },
+    noRecsTitle: { en: "No chart recommendations yet", ar: "لسه مفيش شارتات مقترحة" },
+    noRecsSub: { en: "Analyze your dataset to generate chart recommendations.", ar: "حلّل بياناتك عشان تطلع شارتات مقترحة." },
   },
 };
 function t(lang, path) {
@@ -840,7 +893,7 @@ function Dashboard({ files, reports, setRoute, lang }) {
 }
 
 /* ============================== NEW ANALYSIS WIZARD ============================== */
-function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, onCustomizeChart }) {
+function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, onCustomizeChart, lang }) {
   const [step, setStep] = useState(dataset ? (dataset.schema ? 2 : 1) : 0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -855,7 +908,7 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
   const fileInputRef = useRef();
   const pageSize = 8;
 
-  const steps = ["Import", "Preview & Quality", "Analysis", "Chart Recommendations"];
+  const steps = [t(lang, "wizard.stepImport"), t(lang, "wizard.stepPreview"), t(lang, "wizard.stepAnalysis"), t(lang, "wizard.stepCharts")];
 
   const finishImport = (rawRows, columns, sheetName, fileName) => {
     if (!rawRows.length || !columns.length) {
@@ -1045,8 +1098,8 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
               <div style={{ width: 52, height: 52, borderRadius: 14, background: "var(--blue-dim)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
                 <Upload size={22} color="var(--blue)" />
               </div>
-              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 5 }}>Upload a file</div>
-              <div style={{ fontSize: 12.5, color: "var(--text-2)", marginBottom: 14 }}>Drag & drop or click to browse</div>
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 5 }}>{t(lang, "wizard.uploadTitle")}</div>
+              <div style={{ fontSize: 12.5, color: "var(--text-2)", marginBottom: 14 }}>{t(lang, "wizard.uploadSub")}</div>
               <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                 {[".xlsx", ".xls", ".csv"].map((f) => <Badge key={f} tone="blue">{f}</Badge>)}
               </div>
@@ -1055,13 +1108,13 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
               <div style={{ width: 52, height: 52, borderRadius: 14, background: "var(--teal-dim)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
                 <Link2 size={22} color="var(--teal)" />
               </div>
-              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 5, textAlign: "center" }}>Connect Google Sheets</div>
-              <div style={{ fontSize: 12.5, color: "var(--text-2)", marginBottom: 14, textAlign: "center" }}>Paste a shared Google Sheets URL</div>
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 5, textAlign: "center" }}>{t(lang, "wizard.gsheetTitle")}</div>
+              <div style={{ fontSize: 12.5, color: "var(--text-2)", marginBottom: 14, textAlign: "center" }}>{t(lang, "wizard.gsheetSub")}</div>
               <input className="dv-input" placeholder="https://docs.google.com/spreadsheets/d/..." value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} style={{ marginBottom: 10 }} />
               <button className="dv-btn dv-btn-dark" style={{ width: "100%", justifyContent: "center" }} onClick={() => sheetUrl.trim() && connectGoogleSheet(sheetUrl.trim())} disabled={!sheetUrl.trim() || loading}>
-                {loading ? <><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Connecting…</> : "Connect Google Sheet"}
+                {loading ? <><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> {t(lang, "wizard.connecting")}</> : t(lang, "wizard.connectBtn")}
               </button>
-              <div style={{ fontSize: 10.5, color: "var(--text-3)", marginTop: 8, textAlign: "center" }}>Sharing must be set to "Anyone with the link can view". To pick a specific tab, open that tab in Sheets first, then copy its URL.</div>
+              <div style={{ fontSize: 10.5, color: "var(--text-3)", marginTop: 8, textAlign: "center" }}>{t(lang, "wizard.gsheetNote")}</div>
             </div>
           </div>
           {pendingWorkbook && (
@@ -1082,7 +1135,7 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
               <AlertTriangle size={16} color="var(--rose)" style={{ flexShrink: 0, marginTop: 1 }} /> {error}
             </div>
           )}
-          {loading && <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-2)", fontSize: 13, marginTop: 12 }}><Loader2 size={15} className="dv-spin" style={{ animation: "spin 1s linear infinite" }} /> Reading your file…</div>}
+          {loading && <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-2)", fontSize: 13, marginTop: 12 }}><Loader2 size={15} className="dv-spin" style={{ animation: "spin 1s linear infinite" }} /> {t(lang, "wizard.readingFile")}</div>}
         </div>
       )}
 
@@ -1090,7 +1143,7 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
         <div>
           <div className="dv-card" style={{ padding: 20, marginBottom: 16 }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 4 }}>
-              {[["File name", dataset.name], ["Sheet name", dataset.sheetName], ["Rows", dataset.rows.length], ["Columns", dataset.columns.length]].map(([l, v]) => (
+              {[[t(lang, "wizard.fileName"), dataset.name], [t(lang, "wizard.sheetName"), dataset.sheetName], [t(lang, "wizard.rows"), dataset.rows.length], [t(lang, "wizard.columns"), dataset.columns.length]].map(([l, v]) => (
                 <div key={l}><div className="dv-label">{l}</div><div className="dv-mono" style={{ fontSize: 14, fontWeight: 600 }}>{v}</div></div>
               ))}
             </div>
@@ -1098,10 +1151,10 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 10, marginBottom: 16 }}>
             {[
-              ["Rows", quality.totalRows, "blue"], ["Columns", quality.totalCols, "blue"],
-              ["Missing", `${quality.missingPct}%`, quality.missingPct > 5 ? "rose" : "teal"],
-              ["Duplicates", quality.duplicates, quality.duplicates > 0 ? "amber" : "teal"],
-              ["Numeric cols", quality.numericCols, "violet"], ["Date cols", quality.dateCols, "violet"],
+              [t(lang, "wizard.rows"), quality.totalRows, "blue"], [t(lang, "wizard.columns"), quality.totalCols, "blue"],
+              [t(lang, "wizard.missing"), `${quality.missingPct}%`, quality.missingPct > 5 ? "rose" : "teal"],
+              [t(lang, "wizard.duplicates"), quality.duplicates, quality.duplicates > 0 ? "amber" : "teal"],
+              [t(lang, "wizard.numericCols"), quality.numericCols, "violet"], [t(lang, "wizard.dateCols"), quality.dateCols, "violet"],
             ].map(([l, v, tone]) => (
               <div key={l} className="dv-card" style={{ padding: 12 }}>
                 <div style={{ fontSize: 10.5, color: "var(--text-2)", fontWeight: 600, marginBottom: 4 }}>{l}</div>
@@ -1137,7 +1190,7 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
               <div style={{ position: "relative" }}>
                 <Search size={14} color="var(--text-3)" style={{ position: "absolute", left: 10, top: 10 }} />
-                <input className="dv-input" style={{ paddingLeft: 30, width: 220 }} placeholder="Search rows…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+                <input className="dv-input" style={{ paddingLeft: 30, width: 220 }} placeholder={t(lang, "wizard.searchRows")} value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {dataset.columns.map((c) => (
@@ -1147,7 +1200,7 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
               </div>
             </div>
             <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
-              <Info size={11} /> Wrong type detected? Change the dropdown next to any column name below.
+              <Info size={11} /> {t(lang, "wizard.typeHint")}
             </div>
             <div className="dv-scrollbar" style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
@@ -1213,8 +1266,8 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
           </div>
 
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <button className="dv-btn dv-btn-ghost" onClick={() => setStep(0)}><ArrowLeft size={15} /> Back</button>
-            <button className="dv-btn dv-btn-primary" onClick={runAnalyze} disabled={loading}>{loading ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Analyzing…</> : <>Analyze Data <Sparkles size={15} /></>}</button>
+            <button className="dv-btn dv-btn-ghost" onClick={() => setStep(0)}><ArrowLeft size={15} /> {t(lang, "wizard.back")}</button>
+            <button className="dv-btn dv-btn-primary" onClick={runAnalyze} disabled={loading}>{loading ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> {t(lang, "wizard.analyzing")}</> : <>{t(lang, "wizard.analyzeData")} <Sparkles size={15} /></>}</button>
           </div>
         </div>
       )}
@@ -1234,7 +1287,7 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
           </div>
 
           <div className="dv-card" style={{ padding: 20, marginBottom: 20 }}>
-            <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 14 }}>Automatic Insights</div>
+            <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 14 }}>{t(lang, "wizard.automaticInsights")}</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {insights.map((ins, i) => (
                 <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
@@ -1249,25 +1302,25 @@ function NewAnalysis({ dataset, setDataset, onFinish, setRoute, onAddToReport, o
           </div>
 
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <button className="dv-btn dv-btn-ghost" onClick={() => setStep(1)}><ArrowLeft size={15} /> Back</button>
-            <button className="dv-btn dv-btn-primary" onClick={goToCharts}>See Chart Recommendations <ArrowRight size={15} /></button>
+            <button className="dv-btn dv-btn-ghost" onClick={() => setStep(1)}><ArrowLeft size={15} /> {t(lang, "wizard.back")}</button>
+            <button className="dv-btn dv-btn-primary" onClick={goToCharts}>{t(lang, "wizard.seeChartRecs")} <ArrowRight size={15} /></button>
           </div>
         </div>
       )}
 
       {step === 3 && (
-        <ChartRecommendationsStep recommendations={recommendations} dataset={dataset} setRoute={setRoute} onAddToReport={onAddToReport} onCustomizeChart={onCustomizeChart} />
+        <ChartRecommendationsStep recommendations={recommendations} dataset={dataset} setRoute={setRoute} onAddToReport={onAddToReport} onCustomizeChart={onCustomizeChart} lang={lang} />
       )}
     </div>
   );
 }
 
-function ChartRecommendationsStep({ recommendations, dataset, setRoute, onAddToReport, onCustomizeChart }) {
+function ChartRecommendationsStep({ recommendations, dataset, setRoute, onAddToReport, onCustomizeChart, lang }) {
   const [added, setAdded] = useState([]);
   return (
     <div>
       {recommendations.length === 0 ? (
-        <EmptyState icon={BarChart3} title="No chart recommendations yet" subtitle="Analyze your dataset to generate chart recommendations." />
+        <EmptyState icon={BarChart3} title={t(lang, "wizard.noRecsTitle")} subtitle={t(lang, "wizard.noRecsSub")} />
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 16, marginBottom: 20 }}>
           {recommendations.map((rec) => (
@@ -1283,17 +1336,17 @@ function ChartRecommendationsStep({ recommendations, dataset, setRoute, onAddToR
               <div style={{ display: "flex", gap: 8 }}>
                 <button className="dv-btn dv-btn-sm" style={{ flex: 1, justifyContent: "center", background: added.includes(rec.id) ? "var(--teal-dim)" : "var(--blue)", color: added.includes(rec.id) ? "var(--teal)" : "#fff" }}
                   onClick={() => { onAddToReport(rec); setAdded((a) => [...a, rec.id]); }}>
-                  {added.includes(rec.id) ? <><CheckCircle2 size={13} /> Added</> : "Add to Report"}
+                  {added.includes(rec.id) ? <><CheckCircle2 size={13} /> {t(lang, "wizard.added")}</> : t(lang, "wizard.addToReport")}
                 </button>
-                <button className="dv-btn dv-btn-ghost dv-btn-sm" style={{ flex: 1, justifyContent: "center" }} onClick={() => onCustomizeChart(rec.id)}>Customize</button>
+                <button className="dv-btn dv-btn-ghost dv-btn-sm" style={{ flex: 1, justifyContent: "center" }} onClick={() => onCustomizeChart(rec.id)}>{t(lang, "wizard.customize")}</button>
               </div>
             </div>
           ))}
         </div>
       )}
       <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <button className="dv-btn dv-btn-ghost" onClick={() => setRoute("dashboard")}>Back to Dashboard</button>
-        <button className="dv-btn dv-btn-primary" onClick={() => setRoute("report-builder")}>Go to Report Builder <ArrowRight size={15} /></button>
+        <button className="dv-btn dv-btn-ghost" onClick={() => setRoute("dashboard")}>{t(lang, "wizard.backToDashboard")}</button>
+        <button className="dv-btn dv-btn-primary" onClick={() => setRoute("report-builder")}>{t(lang, "wizard.goToReportBuilder")} <ArrowRight size={15} /></button>
       </div>
     </div>
   );
@@ -2485,7 +2538,7 @@ export default function DataVisionApp() {
   };
 
   if (route === "landing") {
-    return <div className="dv-root" data-theme={theme}><GlobalStyle /><LandingPage onStart={() => setRoute("new-analysis")} /></div>;
+    return <div className="dv-root" data-theme={theme}><GlobalStyle /><LandingPage onStart={() => setRoute("new-analysis")} lang={lang} setLang={setLang} /></div>;
   }
 
   const isFullBleed = (route === "charts" && editingChartId) || route === "report-builder";
@@ -2501,7 +2554,7 @@ export default function DataVisionApp() {
         {!isFullBleed && !isPreview && <TopBar title={titles[route]?.[0] || ""} subtitle={titles[route]?.[1]} theme={theme} setTheme={setTheme} lang={lang} setLang={setLang} />}
         <div className="dv-scrollbar" style={{ flex: 1, overflowY: isFullBleed ? "hidden" : "auto", minHeight: 0 }}>
           {route === "dashboard" && <Dashboard files={files} reports={reports} setRoute={goRoute} lang={lang} />}
-          {route === "new-analysis" && <NewAnalysis dataset={dataset} setDataset={setDataset} onFinish={handleFinishAnalysis} setRoute={goRoute} onAddToReport={addChartToReport} onCustomizeChart={onCustomizeChart} />}
+          {route === "new-analysis" && <NewAnalysis dataset={dataset} setDataset={setDataset} onFinish={handleFinishAnalysis} setRoute={goRoute} onAddToReport={addChartToReport} onCustomizeChart={onCustomizeChart} lang={lang} />}
           {route === "charts" && <ChartsPage charts={charts} setCharts={setCharts} dataset={dataset} onAddToReport={addChartToReport} editingId={editingChartId} setEditingId={setEditingChartId} />}
           {route === "files" && <FilesPage files={files} setFiles={setFiles} setRoute={goRoute} askConfirm={askConfirm} />}
           {route === "reports" && <ReportsPage reports={reports} setReports={setReports} setRoute={goRoute} askConfirm={askConfirm} />}
