@@ -552,7 +552,7 @@ const EmptyState = ({ icon: Icon, title, subtitle, action }) => (
 
 // Global confirmation dialog — used anywhere a destructive action (delete file / report / section)
 // needs a deliberate second step instead of deleting on the first click.
-function ConfirmDialog({ state, onCancel }) {
+function ConfirmDialog({ state, onCancel, lang }) {
   if (!state) return null;
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(11,18,32,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 20 }} onClick={onCancel}>
@@ -567,8 +567,8 @@ function ConfirmDialog({ state, onCancel }) {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={onCancel}>Cancel</button>
-          <button className="dv-btn dv-btn-sm" style={{ background: "var(--rose)", color: "#fff" }} onClick={() => { state.onConfirm(); onCancel(); }}>Delete</button>
+          <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={onCancel}>{t(lang, "common.cancel")}</button>
+          <button className="dv-btn dv-btn-sm" style={{ background: "var(--rose)", color: "#fff" }} onClick={() => { state.onConfirm(); onCancel(); }}>{t(lang, "common.delete")}</button>
         </div>
       </div>
     </div>
@@ -778,7 +778,177 @@ const TRANSLATIONS = {
     piiDetected: { en: "Personal data detected and protected:", ar: "بيانات شخصية اتكشفت واتحمت:" },
     piiDetail: { en: "These columns are masked below and automatically left out of KPIs, insights, charts, and report tables. Click the shield icon next to a column name if this was flagged by mistake.", ar: "الأعمدة دي متقنّعة تحت ومستبعدة تلقائيًا من المؤشرات والرؤى والشارتات وجداول التقرير. دوس على أيقونة الدرع جنب اسم العمود لو اتصنّف غلط." },
   },
+  chartsPage: {
+    heading: { en: "Charts", ar: "الشارتات" },
+    newChart: { en: "New Chart", ar: "شارت جديد" },
+    noDatasetTitle: { en: "No dataset loaded", ar: "مفيش بيانات محمّلة" },
+    noDatasetSub: { en: "Run a New Analysis first to generate chart recommendations you can customize here.", ar: "اعمل تحليل جديد الأول عشان تطلع شارتات مقترحة تقدر تخصّصها هنا." },
+    noChartsTitle: { en: "No charts yet", ar: "لسه مفيش شارتات" },
+    noChartsSub: { en: "Analyze your dataset to generate chart recommendations.", ar: "حلّل بياناتك عشان تطلع شارتات مقترحة." },
+    inReport: { en: "In report", ar: "في التقرير" },
+    addToReport: { en: "Add to Report", ar: "ضيف للتقرير" },
+    customize: { en: "Customize", ar: "خصّص" },
+  },
+  chartEditor: {
+    title: { en: "Chart Editor", ar: "محرر الشارت" },
+    chartType: { en: "Chart Type", ar: "نوع الشارت" },
+    data: { en: "Data", ar: "البيانات" },
+    xAxis: { en: "X-Axis", ar: "المحور X" },
+    yAxis: { en: "Y-Axis", ar: "المحور Y" },
+    groupBy: { en: "Group By (optional)", ar: "التجميع حسب (اختياري)" },
+    none: { en: "None", ar: "بلا" },
+    aggregation: { en: "Aggregation", ar: "طريقة الحساب" },
+    recommendedNumeric: { en: "Recommended (numeric)", ar: "مقترح (أرقام)" },
+    otherWontPlot: { en: "Other (won't plot as a number)", ar: "غير ذلك (مش هيترسم كرقم)" },
+    recommendedDateCat: { en: "Recommended (date / category)", ar: "مقترح (تاريخ / فئة)" },
+    numericTooMany: { en: "Numeric (can create too many groups)", ar: "أرقام (ممكن تعمل تصنيفات كتير أوي)" },
+    xWarnHighCard: { en: "has {n} unique values{extra} — {type} works best with a date or a low-cardinality category as X. Try switching X-Axis, or use Scatter for two numeric fields.", ar: "فيه {n} قيمة فريدة{extra} — {type} بيشتغل أحسن مع تاريخ أو فئة قليلة القيم كـ X. جرّب تغيّر المحور X، أو استخدم Scatter لرقمين." },
+    xWarnContinuous: { en: " and looks like a continuous number", ar: " وشكله رقم متصل" },
+    xWarnScatterDate: { en: "Scatter needs two numeric fields. \"{field}\" is a date — pick a numeric X, or use Line/Area to plot a trend over time instead.", ar: "Scatter محتاج رقمين. \"{field}\" ده تاريخ — اختار رقم كـ X، أو استخدم Line/Area عشان ترسم اتجاه عبر الوقت." },
+    filters: { en: "Filters", ar: "الفلاتر" },
+    quickRange: { en: "Quick range", ar: "مدى سريع" },
+    yearPlaceholder: { en: "Year…", ar: "السنة…" },
+    fullYear: { en: "Full year", ar: "السنة كاملة" },
+    quickRangeNote: { en: "Fills in the From/To fields below — pick a year (and optionally a quarter) as a shortcut.", ar: "بيملى حقول من/إلى تحت — اختار سنة (وربع سنوي لو حابب) كطريقة سريعة." },
+    from: { en: "From", ar: "من" },
+    to: { en: "To", ar: "إلى" },
+    compareYears: { en: "Compare years (overrides From/To — plots each year Jan–Dec)", ar: "قارن سنين (بيتجاهل من/إلى — بيرسم كل سنة من يناير لديسمبر)" },
+    clear: { en: "Clear", ar: "امسح" },
+    categoryFilter: { en: "Category filter", ar: "فلتر الفئة" },
+    numericMin: { en: "Numeric min", ar: "أقل رقم" },
+    numericMax: { en: "Numeric max", ar: "أعلى رقم" },
+    topN: { en: "Top N", ar: "أعلى N" },
+    bottomN: { en: "Bottom N", ar: "أقل N" },
+    appearance: { en: "Appearance", ar: "المظهر" },
+    chartTitle: { en: "Chart title", ar: "عنوان الشارت" },
+    subtitle: { en: "Subtitle", ar: "العنوان الفرعي" },
+    legend: { en: "Legend", ar: "المفتاح" },
+    dataLabels: { en: "Data labels", ar: "تسميات البيانات" },
+    gridlines: { en: "Gridlines", ar: "خطوط الشبكة" },
+    stackedPercent: { en: "100% stacked", ar: "تراكمي 100%" },
+    stackedPercentNote: { en: "Every bar is rescaled to its own 100% — each segment shows its share within that bar, not the whole chart.", ar: "كل عمود بيتحسب لوحده كـ 100% — كل قطاع بيوريك نسبته جوه العمود ده بس، مش من الشارت كله." },
+    orientation: { en: "Orientation", ar: "الاتجاه" },
+    vertical: { en: "Vertical (Column)", ar: "رأسي (عمودي)" },
+    horizontal: { en: "Horizontal (Bar)", ar: "أفقي" },
+    numberFormat: { en: "Number format", ar: "صيغة الرقم" },
+    number: { en: "Number", ar: "رقم" },
+    currency: { en: "Currency", ar: "عملة" },
+    percentage: { en: "Percentage", ar: "نسبة مئوية" },
+    colorPalette: { en: "Color palette", ar: "لوحة الألوان" },
+    fontSize: { en: "Chart font size — {n}px", ar: "حجم خط الشارت — {n}px" },
+    saveChart: { en: "Save Chart", ar: "احفظ الشارت" },
+    addToReport: { en: "Add to Report", ar: "ضيف للتقرير" },
+    png: { en: "PNG", ar: "PNG" },
+  },
+  templates: {
+    executive: { name: { en: "Executive", ar: "تنفيذي" }, desc: { en: "Clean corporate design", ar: "تصميم شركات نظيف" } },
+    sales: { name: { en: "Sales", ar: "مبيعات" }, desc: { en: "Optimized for revenue reports", ar: "محسّن لتقارير الإيرادات" } },
+    marketing: { name: { en: "Marketing", ar: "تسويق" }, desc: { en: "Campaigns, leads, conversion", ar: "الحملات والعملاء والتحويل" } },
+    financial: { name: { en: "Financial", ar: "مالي" }, desc: { en: "Optimized for financial metrics", ar: "محسّن للمؤشرات المالية" } },
+    simple: { name: { en: "Simple", ar: "بسيط" }, desc: { en: "Minimal clean report", ar: "تقرير بسيط ونظيف" } },
+  },
+  sections: {
+    cover: { en: "Cover Page", ar: "صفحة الغلاف" },
+    summary: { en: "Executive Summary", ar: "ملخص تنفيذي" },
+    kpi: { en: "KPI Cards", ar: "كروت المؤشرات" },
+    chart: { en: "Chart", ar: "شارت" },
+    text: { en: "Text Block", ar: "كتلة نص" },
+    table: { en: "Data Table", ar: "جدول بيانات" },
+    insights: { en: "Key Insights", ar: "رؤى رئيسية" },
+  },
+  reportBuilder: {
+    noDatasetTitle: { en: "No dataset loaded", ar: "مفيش بيانات محمّلة" },
+    noDatasetSub: { en: "Run a New Analysis first, then come back to build your report.", ar: "اعمل تحليل جديد الأول، وبعدين ارجع تبني تقريرك." },
+    fullPreview: { en: "Full Preview", ar: "معاينة كاملة" },
+    exportPdf: { en: "Export PDF", ar: "تصدير PDF" },
+    template: { en: "Template", ar: "القالب" },
+    reportTitle: { en: "Report title", ar: "عنوان التقرير" },
+    companyName: { en: "Company name", ar: "اسم الشركة" },
+    authorName: { en: "Author name", ar: "اسم الكاتب" },
+    orientation: { en: "Orientation", ar: "الاتجاه" },
+    portrait: { en: "Portrait", ar: "طولي" },
+    landscape: { en: "Landscape", ar: "عرضي" },
+    design: { en: "Design", ar: "التصميم" },
+    headingFont: { en: "Heading font", ar: "خط العناوين" },
+    serif: { en: "Serif", ar: "زخرفي" },
+    sans: { en: "Sans", ar: "بسيط" },
+    bodyTextSize: { en: "Body text size — {n}px", ar: "حجم نص المحتوى — {n}px" },
+    accentColor: { en: "Accent color", ar: "لون التمييز" },
+    reset: { en: "Reset", ar: "استعادة" },
+    branding: { en: "Branding", ar: "الهوية" },
+    logoCover: { en: "Logo (cover page)", ar: "الشعار (صفحة الغلاف)" },
+    replace: { en: "Replace", ar: "استبدال" },
+    upload: { en: "Upload", ar: "رفع" },
+    remove: { en: "Remove", ar: "إزالة" },
+    logoSize: { en: "Logo size — {n}px", ar: "حجم الشعار — {n}px" },
+    logoPosition: { en: "Position on cover page", ar: "المكان في صفحة الغلاف" },
+    addSection: { en: "Add section", ar: "ضيف قسم" },
+    sectionsInReport: { en: "Sections in this report", ar: "الأقسام في هذا التقرير" },
+    emptyReportTitle: { en: "Your report is empty", ar: "التقرير فاضي" },
+    emptyReportSub: { en: "Add sections above to start building your report.", ar: "ضيف أقسام من فوق عشان تبدأ تبني تقريرك." },
+    removeSectionTitle: { en: "Remove section?", ar: "تشيل القسم؟" },
+    removeSectionMsg: { en: "\"{title}\" will be removed from this report.", ar: "\"{title}\" هيتشال من التقرير ده." },
+    livePreview: { en: "Live preview", ar: "معاينة حية" },
+    selectChart: { en: "Select a chart…", ar: "اختار شارت…" },
+    chartCaptionPlaceholder: { en: "Optional paragraph under this chart (e.g. context or takeaway)…", ar: "فقرة اختيارية تحت الشارت ده (سياق أو خلاصة مثلًا)…" },
+    textPlaceholder: { en: "Add your commentary here…", ar: "اكتب تعليقك هنا…" },
+    summaryPlaceholder: { en: "Write a short overview of overall performance, key findings and recommendations…", ar: "اكتب نظرة عامة قصيرة عن الأداء والنتائج والتوصيات…" },
+    noKpisYet: { en: "No KPI cards chosen yet — add one below.", ar: "لسه مفيش كروت مؤشرات مختارة — ضيف واحد تحت." },
+    column: { en: "Column…", ar: "عمود…" },
+    labelOptional: { en: "Label (optional)", ar: "التسمية (اختياري)" },
+    groupByOptional: { en: "Group by (optional)", ar: "التجميع حسب (اختياري)" },
+    noGrouping: { en: "No grouping — show raw rows", ar: "من غير تجميع — اعرض الصفوف الخام" },
+    groupByNote: { en: "Shows one row per \"{field}\", with numeric columns below summarized by the aggregation you pick.", ar: "بيعرض صف واحد لكل \"{field}\"، والأعمدة الرقمية تحت بتتلخص بطريقة الحساب اللي تختارها." },
+    aggregation: { en: "Aggregation", ar: "طريقة الحساب" },
+    columnsCount: { en: "Columns ({n} of {total})", ar: "الأعمدة ({n} من {total})" },
+    numericOnlyNote: { en: "Only numeric columns can be aggregated — \"{field}\" is always shown as the first column.", ar: "الأعمدة الرقمية بس اللي ممكن تتلخص — \"{field}\" دايمًا بيظهر كأول عمود." },
+    piiExcludedNote: { en: "{n} personal-data column(s) always excluded.", ar: "{n} عمود بيانات شخصية مستبعد دايمًا." },
+    rows: { en: "Rows", ar: "الصفوف" },
+    allRows: { en: "All rows", ar: "كل الصفوف" },
+    sortBy: { en: "Sort by", ar: "رتّب حسب" },
+    originalOrder: { en: "Original order", ar: "الترتيب الأصلي" },
+    dir: { en: "Dir", ar: "الاتجاه" },
+    asc: { en: "Asc", ar: "تصاعدي" },
+    desc: { en: "Desc", ar: "تنازلي" },
+    insightsCount: { en: "{n} automatic insight(s) will be listed here", ar: "{n} رؤية تلقائية هتظهر هنا" },
+    coverDesc: { en: "Cover page with report title, company and author", ar: "صفحة غلاف فيها عنوان التقرير والشركة والكاتب" },
+  },
+  reportPreview: {
+    editReport: { en: "Edit report", ar: "عدّل التقرير" },
+    exportPdf: { en: "Export PDF", ar: "تصدير PDF" },
+  },
+  filesPage: {
+    heading: { en: "My Files", ar: "ملفاتي" },
+    noFilesTitle: { en: "No files yet", ar: "مفيش ملفات لسه" },
+    noFilesSub: { en: "Upload your first dataset to start analyzing your data.", ar: "ارفع أول ملف بيانات عشان تبدأ التحليل." },
+    uploadData: { en: "Upload data", ar: "ارفع بيانات" },
+    open: { en: "Open", ar: "افتح" },
+    analyze: { en: "Analyze", ar: "حلّل" },
+    deleteTitle: { en: "Delete file?", ar: "تمسح الملف؟" },
+    deleteMsg: { en: "\"{name}\" will be removed from My Files. This can't be undone.", ar: "\"{name}\" هيتمسح من My Files. الحركة دي مش هترجع." },
+    metaLine: { en: "{rows} rows · {cols} cols · uploaded {date}", ar: "{rows} صف · {cols} عمود · اترفع في {date}" },
+  },
+  reportsPage: {
+    heading: { en: "My Reports", ar: "تقاريري" },
+    newReport: { en: "New Report", ar: "تقرير جديد" },
+    continueEditing: { en: "Continue editing your current draft report", ar: "كمّل تعديل مسودة التقرير الحالية" },
+    openBuilder: { en: "Open Report Builder", ar: "افتح إنشاء التقرير" },
+    noReportsTitle: { en: "No saved reports yet", ar: "مفيش تقارير محفوظة لسه" },
+    noReportsSub: { en: "Reports you build get listed here once you preview or export them.", ar: "التقارير اللي تبنيها هتظهر هنا أول ما تعاينها أو تصدّرها." },
+    view: { en: "View", ar: "اعرض" },
+    edit: { en: "Edit", ar: "عدّل" },
+    deleteTitle: { en: "Delete report?", ar: "تمسح التقرير؟" },
+    deleteMsg: { en: "\"{title}\" will be permanently deleted. This can't be undone.", ar: "\"{title}\" هيتمسح نهائيًا. الحركة دي مش هترجع." },
+    sectionsCount: { en: "{template} · {n} sections", ar: "{template} · {n} أقسام" },
+  },
+  common: {
+    cancel: { en: "Cancel", ar: "إلغاء" },
+    delete: { en: "Delete", ar: "امسح" },
+  },
 };
+function templateName(id, lang) { return TRANSLATIONS.templates[id]?.name?.[lang] || TRANSLATIONS.templates[id]?.name?.en || id; }
+function templateDesc(id, lang) { return TRANSLATIONS.templates[id]?.desc?.[lang] || TRANSLATIONS.templates[id]?.desc?.en || ""; }
+function sectionLabel(type, lang) { return TRANSLATIONS.sections[type]?.[lang] || TRANSLATIONS.sections[type]?.en || type; }
 function t(lang, path) {
   const node = path.split(".").reduce((acc, k) => acc?.[k], TRANSLATIONS);
   return node?.[lang] || node?.en || path;
@@ -1407,16 +1577,16 @@ function MiniChartPreview({ cfg, rows, schema }) {
 }
 
 /* ============================== CHARTS LIBRARY / BUILDER ============================== */
-function ChartsPage({ charts, setCharts, dataset, onAddToReport, editingId, setEditingId }) {
+function ChartsPage({ charts, setCharts, dataset, onAddToReport, editingId, setEditingId, lang }) {
   if (editingId) {
     const chart = charts.find((c) => c.id === editingId);
-    if (chart) return <ChartBuilder chart={chart} dataset={dataset} onSave={(updated) => { setCharts((cs) => cs.map((c) => c.id === updated.id ? updated : c)); setEditingId(null); }} onCancel={() => setEditingId(null)} onAddToReport={onAddToReport} />;
+    if (chart) return <ChartBuilder chart={chart} dataset={dataset} onSave={(updated) => { setCharts((cs) => cs.map((c) => c.id === updated.id ? updated : c)); setEditingId(null); }} onCancel={() => setEditingId(null)} onAddToReport={onAddToReport} lang={lang} />;
   }
-  if (!dataset) return <div style={{ padding: 28 }}><EmptyState icon={BarChart3} title="No dataset loaded" subtitle="Run a New Analysis first to generate chart recommendations you can customize here." /></div>;
+  if (!dataset) return <div style={{ padding: 28 }}><EmptyState icon={BarChart3} title={t(lang, "chartsPage.noDatasetTitle")} subtitle={t(lang, "chartsPage.noDatasetSub")} /></div>;
   return (
     <div className="dv-fade-in" style={{ padding: 28, maxWidth: 1140, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-        <div style={{ fontWeight: 700, fontSize: 17 }}>Charts</div>
+        <div style={{ fontWeight: 700, fontSize: 17 }}>{t(lang, "chartsPage.heading")}</div>
         <button className="dv-btn dv-btn-primary dv-btn-sm" onClick={() => {
           const safeSchema = dataset.schema.filter((s) => !s.sensitive);
           // Default X to a date/category field and Y to a numeric field where possible — picking
@@ -1426,18 +1596,18 @@ function ChartsPage({ charts, setCharts, dataset, onAddToReport, editingId, setE
           const yDefault = (safeSchema.find((s) => ["number", "currency", "percentage"].includes(s.type) && s.name !== xDefault) || safeSchema.find((s) => s.name !== xDefault) || safeSchema[0])?.name;
           const blank = { id: uid(), type: "bar", title: "New Chart", subtitle: "", explanation: "", xField: xDefault, yField: yDefault, groupBy: "", aggregation: "sum", filters: { dateFrom: "", dateTo: "", categories: [], numMin: "", numMax: "", topN: "", bottomN: "", compareYears: [] }, appearance: { legend: true, dataLabels: false, gridlines: true, orientation: "vertical", numberFormat: "number", colorPalette: "classic", fontSize: 12 }, addedToReport: false };
           setCharts((cs) => [...cs, blank]); setEditingId(blank.id);
-        }}><Plus size={14} /> New Chart</button>
+        }}><Plus size={14} /> {t(lang, "chartsPage.newChart")}</button>
       </div>
-      {charts.length === 0 ? <EmptyState icon={BarChart3} title="No charts yet" subtitle="Analyze your dataset to generate chart recommendations." /> : (
+      {charts.length === 0 ? <EmptyState icon={BarChart3} title={t(lang, "chartsPage.noChartsTitle")} subtitle={t(lang, "chartsPage.noChartsSub")} /> : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 16 }}>
           {charts.map((c) => (
             <div key={c.id} className="dv-card" style={{ padding: 16 }}>
               <div style={{ height: 140, marginBottom: 10 }}><MiniChartPreview cfg={c} rows={dataset.rows} schema={dataset.schema} /></div>
-              <div style={{ display: "flex", gap: 6, marginBottom: 6 }}><Badge tone="blue">{c.type}</Badge>{c.addedToReport && <Badge tone="teal">In report</Badge>}</div>
+              <div style={{ display: "flex", gap: 6, marginBottom: 6 }}><Badge tone="blue">{c.type}</Badge>{c.addedToReport && <Badge tone="teal">{t(lang, "chartsPage.inReport")}</Badge>}</div>
               <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{c.title}</div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button className="dv-btn dv-btn-primary dv-btn-sm" style={{ flex: 1, justifyContent: "center" }} onClick={() => onAddToReport(c)}>Add to Report</button>
-                <button className="dv-btn dv-btn-ghost dv-btn-sm" style={{ flex: 1, justifyContent: "center" }} onClick={() => setEditingId(c.id)}>Customize</button>
+                <button className="dv-btn dv-btn-primary dv-btn-sm" style={{ flex: 1, justifyContent: "center" }} onClick={() => onAddToReport(c)}>{t(lang, "chartsPage.addToReport")}</button>
+                <button className="dv-btn dv-btn-ghost dv-btn-sm" style={{ flex: 1, justifyContent: "center" }} onClick={() => setEditingId(c.id)}>{t(lang, "chartsPage.customize")}</button>
               </div>
             </div>
           ))}
@@ -1447,7 +1617,7 @@ function ChartsPage({ charts, setCharts, dataset, onAddToReport, editingId, setE
   );
 }
 
-function ChartBuilder({ chart, dataset, onSave, onCancel, onAddToReport }) {
+function ChartBuilder({ chart, dataset, onSave, onCancel, onAddToReport, lang }) {
   const [cfg, setCfg] = useState(chart);
   const set = (path, val) => setCfg((c) => {
     const next = _.cloneDeep(c);
@@ -1528,71 +1698,71 @@ function ChartBuilder({ chart, dataset, onSave, onCancel, onAddToReport }) {
     <div className="dv-fade-in dv-split" style={{ "--split-w": "320px", height: "100%" }}>
       <div className="dv-scrollbar dv-split-side" style={{ borderRight: "1px solid var(--border)", padding: 20, overflowY: "auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>Chart Editor</div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{t(lang, "chartEditor.title")}</div>
           <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={onCancel}><X size={14} /></button>
         </div>
 
-        <Section title="Chart Type">
+        <Section title={t(lang, "chartEditor.chartType")}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6 }}>
-            {["bar", "line", "area", "pie", "donut", "scatter", "stacked-bar", "grouped-bar"].map((t) => (
-              <button key={t} onClick={() => {
-                if (t === "scatter" && xColType !== "number" && xColType !== "currency" && xColType !== "percentage") {
+            {["bar", "line", "area", "pie", "donut", "scatter", "stacked-bar", "grouped-bar"].map((t2) => (
+              <button key={t2} onClick={() => {
+                if (t2 === "scatter" && xColType !== "number" && xColType !== "currency" && xColType !== "percentage") {
                   const firstNumeric = numericCols.find((c) => c !== cfg.yField) || numericCols[0];
-                  if (firstNumeric) { setCfg((c) => ({ ...c, type: t, xField: firstNumeric })); return; }
+                  if (firstNumeric) { setCfg((c) => ({ ...c, type: t2, xField: firstNumeric })); return; }
                 }
-                set("type", t);
-              }} className="dv-btn dv-btn-sm" style={{ justifyContent: "center", background: cfg.type === t ? "var(--blue)" : "var(--surface)", color: cfg.type === t ? "#fff" : "var(--text-2)", border: "1px solid var(--border)" }}>{t}</button>
+                set("type", t2);
+              }} className="dv-btn dv-btn-sm" style={{ justifyContent: "center", background: cfg.type === t2 ? "var(--blue)" : "var(--surface)", color: cfg.type === t2 ? "#fff" : "var(--text-2)", border: "1px solid var(--border)" }}>{t2}</button>
             ))}
           </div>
         </Section>
 
-        <Section title="Data">
-          <Field label="X-Axis">
+        <Section title={t(lang, "chartEditor.data")}>
+          <Field label={t(lang, "chartEditor.xAxis")}>
             <select className="dv-input" value={cfg.xField} onChange={(e) => set("xField", e.target.value)}>
               {cfg.type === "scatter" ? (
                 <>
-                  {numericCols.length > 0 && <optgroup label="Recommended (numeric)">{numericCols.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>}
-                  {xCatCols.length > 0 && <optgroup label="Other (won't plot as a number)">{xCatCols.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>}
+                  {numericCols.length > 0 && <optgroup label={t(lang, "chartEditor.recommendedNumeric")}>{numericCols.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>}
+                  {xCatCols.length > 0 && <optgroup label={t(lang, "chartEditor.otherWontPlot")}>{xCatCols.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>}
                 </>
               ) : (
                 <>
-                  {xCatCols.length > 0 && <optgroup label="Recommended (date / category)">{xCatCols.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>}
-                  {numericCols.length > 0 && <optgroup label="Numeric (can create too many groups)">{numericCols.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>}
+                  {xCatCols.length > 0 && <optgroup label={t(lang, "chartEditor.recommendedDateCat")}>{xCatCols.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>}
+                  {numericCols.length > 0 && <optgroup label={t(lang, "chartEditor.numericTooMany")}>{numericCols.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>}
                 </>
               )}
             </select>
             {cfg.type !== "scatter" && (numericCols.includes(cfg.xField) || xUniqueCount > 20) && (
               <div style={{ fontSize: 11, color: "var(--amber)", display: "flex", gap: 5, alignItems: "flex-start", marginTop: 6, lineHeight: 1.4 }}>
                 <AlertTriangle size={12} style={{ flexShrink: 0, marginTop: 1 }} />
-                <span>"{cfg.xField}" has {xUniqueCount} unique values{numericCols.includes(cfg.xField) ? " and looks like a continuous number" : ""} — {cfg.type} works best with a date or a low-cardinality category as X. Try switching X-Axis, or use Scatter for two numeric fields.</span>
+                <span>"{cfg.xField}" {tf(lang, "chartEditor.xWarnHighCard", { n: xUniqueCount, type: cfg.type, extra: numericCols.includes(cfg.xField) ? t(lang, "chartEditor.xWarnContinuous") : "" })}</span>
               </div>
             )}
             {cfg.type === "scatter" && xColType === "date" && (
               <div style={{ fontSize: 11, color: "var(--amber)", display: "flex", gap: 5, alignItems: "flex-start", marginTop: 6, lineHeight: 1.4 }}>
                 <AlertTriangle size={12} style={{ flexShrink: 0, marginTop: 1 }} />
-                <span>Scatter needs two numeric fields. "{cfg.xField}" is a date — pick a numeric X, or use Line/Area to plot a trend over time instead.</span>
+                <span>{tf(lang, "chartEditor.xWarnScatterDate", { field: cfg.xField })}</span>
               </div>
             )}
           </Field>
-          <Field label="Y-Axis">
+          <Field label={t(lang, "chartEditor.yAxis")}>
             <select className="dv-input" value={cfg.yField} onChange={(e) => set("yField", e.target.value)}>{[...numericCols, ...allCols.filter(c=>!numericCols.includes(c))].map((c) => <option key={c} value={c}>{c}</option>)}</select>
           </Field>
           {["bar", "line", "stacked-bar", "grouped-bar"].includes(cfg.type) && (
-            <Field label="Group By (optional)">
-              <select className="dv-input" value={cfg.groupBy} onChange={(e) => set("groupBy", e.target.value)}><option value="">None</option>{categoryCols.map((c) => <option key={c} value={c}>{c}</option>)}</select>
+            <Field label={t(lang, "chartEditor.groupBy")}>
+              <select className="dv-input" value={cfg.groupBy} onChange={(e) => set("groupBy", e.target.value)}><option value="">{t(lang, "chartEditor.none")}</option>{categoryCols.map((c) => <option key={c} value={c}>{c}</option>)}</select>
             </Field>
           )}
-          <Field label="Aggregation">
+          <Field label={t(lang, "chartEditor.aggregation")}>
             <select className="dv-input" value={cfg.aggregation} onChange={(e) => set("aggregation", e.target.value)}>
               {["sum", "avg", "count", "min", "max"].map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
           </Field>
         </Section>
 
-        <Section title="Filters">
+        <Section title={t(lang, "chartEditor.filters")}>
           {xColType === "date" && (
             <>
-              <Field label="Quick range">
+              <Field label={t(lang, "chartEditor.quickRange")}>
                 <div style={{ display: "flex", gap: 6 }}>
                   <select className="dv-input" value={quickYear} onChange={(e) => {
                     const y = e.target.value; setQuickYear(y);
@@ -1603,7 +1773,7 @@ function ChartBuilder({ chart, dataset, onSave, onCancel, onAddToReport }) {
                     set("filters.dateFrom", from.toISOString().slice(0, 10));
                     set("filters.dateTo", to.toISOString().slice(0, 10));
                   }}>
-                    <option value="">Year…</option>
+                    <option value="">{t(lang, "chartEditor.yearPlaceholder")}</option>
                     {availableYears.map((y) => <option key={y} value={y}>{y}</option>)}
                   </select>
                   <select className="dv-input" value={quickQuarter} onChange={(e) => {
@@ -1615,18 +1785,18 @@ function ChartBuilder({ chart, dataset, onSave, onCancel, onAddToReport }) {
                     set("filters.dateFrom", from.toISOString().slice(0, 10));
                     set("filters.dateTo", to.toISOString().slice(0, 10));
                   }}>
-                    <option value="">Full year</option>
+                    <option value="">{t(lang, "chartEditor.fullYear")}</option>
                     {Object.keys(QUARTERS).map((q) => <option key={q} value={q}>{q}</option>)}
                   </select>
                 </div>
-                <div style={{ fontSize: 10.5, color: "var(--text-3)", marginTop: 4 }}>Fills in the From/To fields below — pick a year (and optionally a quarter) as a shortcut.</div>
+                <div style={{ fontSize: 10.5, color: "var(--text-3)", marginTop: 4 }}>{t(lang, "chartEditor.quickRangeNote")}</div>
               </Field>
               <div style={{ display: "flex", gap: 8 }}>
-                <Field label="From"><input type="date" className="dv-input" value={cfg.filters.dateFrom} onChange={(e) => set("filters.dateFrom", e.target.value)} /></Field>
-                <Field label="To"><input type="date" className="dv-input" value={cfg.filters.dateTo} onChange={(e) => set("filters.dateTo", e.target.value)} /></Field>
+                <Field label={t(lang, "chartEditor.from")}><input type="date" className="dv-input" value={cfg.filters.dateFrom} onChange={(e) => set("filters.dateFrom", e.target.value)} /></Field>
+                <Field label={t(lang, "chartEditor.to")}><input type="date" className="dv-input" value={cfg.filters.dateTo} onChange={(e) => set("filters.dateTo", e.target.value)} /></Field>
               </div>
               {availableYears.length > 1 && (
-                <Field label="Compare years (overrides From/To — plots each year Jan–Dec)">
+                <Field label={t(lang, "chartEditor.compareYears")}>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                     {availableYears.map((y) => {
                       const ys = String(y);
@@ -1638,52 +1808,52 @@ function ChartBuilder({ chart, dataset, onSave, onCancel, onAddToReport }) {
                         </button>
                       );
                     })}
-                    {cfg.filters.compareYears.length > 0 && <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => set("filters.compareYears", [])}>Clear</button>}
+                    {cfg.filters.compareYears.length > 0 && <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => set("filters.compareYears", [])}>{t(lang, "chartEditor.clear")}</button>}
                   </div>
                 </Field>
               )}
             </>
           )}
-          <Field label="Category filter">
+          <Field label={t(lang, "chartEditor.categoryFilter")}>
             <select multiple className="dv-input" style={{ height: 70 }} value={cfg.filters.categories} onChange={(e) => set("filters.categories", Array.from(e.target.selectedOptions, (o) => o.value))}>
               {uniqueXVals.map((v) => <option key={v} value={v}>{v}</option>)}
             </select>
           </Field>
           <div style={{ display: "flex", gap: 8 }}>
-            <Field label="Numeric min"><input type="number" className="dv-input" value={cfg.filters.numMin} onChange={(e) => set("filters.numMin", e.target.value)} /></Field>
-            <Field label="Numeric max"><input type="number" className="dv-input" value={cfg.filters.numMax} onChange={(e) => set("filters.numMax", e.target.value)} /></Field>
+            <Field label={t(lang, "chartEditor.numericMin")}><input type="number" className="dv-input" value={cfg.filters.numMin} onChange={(e) => set("filters.numMin", e.target.value)} /></Field>
+            <Field label={t(lang, "chartEditor.numericMax")}><input type="number" className="dv-input" value={cfg.filters.numMax} onChange={(e) => set("filters.numMax", e.target.value)} /></Field>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <Field label="Top N"><input type="number" className="dv-input" value={cfg.filters.topN} onChange={(e) => set("filters.topN", e.target.value)} /></Field>
-            <Field label="Bottom N"><input type="number" className="dv-input" value={cfg.filters.bottomN} onChange={(e) => set("filters.bottomN", e.target.value)} /></Field>
+            <Field label={t(lang, "chartEditor.topN")}><input type="number" className="dv-input" value={cfg.filters.topN} onChange={(e) => set("filters.topN", e.target.value)} /></Field>
+            <Field label={t(lang, "chartEditor.bottomN")}><input type="number" className="dv-input" value={cfg.filters.bottomN} onChange={(e) => set("filters.bottomN", e.target.value)} /></Field>
           </div>
         </Section>
 
-        <Section title="Appearance">
-          <Field label="Chart title"><input className="dv-input" value={cfg.title} onChange={(e) => set("title", e.target.value)} /></Field>
-          <Field label="Subtitle"><input className="dv-input" value={cfg.subtitle} onChange={(e) => set("subtitle", e.target.value)} /></Field>
+        <Section title={t(lang, "chartEditor.appearance")}>
+          <Field label={t(lang, "chartEditor.chartTitle")}><input className="dv-input" value={cfg.title} onChange={(e) => set("title", e.target.value)} /></Field>
+          <Field label={t(lang, "chartEditor.subtitle")}><input className="dv-input" value={cfg.subtitle} onChange={(e) => set("subtitle", e.target.value)} /></Field>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 6 }}>
-            {[["legend", "Legend"], ["dataLabels", "Data labels"], ["gridlines", "Gridlines"]].map(([k, l]) => (
+            {[["legend", t(lang, "chartEditor.legend")], ["dataLabels", t(lang, "chartEditor.dataLabels")], ["gridlines", t(lang, "chartEditor.gridlines")]].map(([k, l]) => (
               <label key={k} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
                 <input type="checkbox" checked={cfg.appearance[k]} onChange={(e) => set(`appearance.${k}`, e.target.checked)} /> {l}
               </label>
             ))}
             {cfg.type === "stacked-bar" && cfg.groupBy && (
               <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-                <input type="checkbox" checked={!!cfg.appearance.stackedPercent} onChange={(e) => set("appearance.stackedPercent", e.target.checked)} /> 100% stacked
+                <input type="checkbox" checked={!!cfg.appearance.stackedPercent} onChange={(e) => set("appearance.stackedPercent", e.target.checked)} /> {t(lang, "chartEditor.stackedPercent")}
               </label>
             )}
           </div>
           {cfg.type === "stacked-bar" && cfg.appearance.stackedPercent && (
-            <div style={{ fontSize: 11, color: "var(--text-3)", lineHeight: 1.4 }}>Every bar is rescaled to its own 100% — each segment shows its share within that bar, not the whole chart.</div>
+            <div style={{ fontSize: 11, color: "var(--text-3)", lineHeight: 1.4 }}>{t(lang, "chartEditor.stackedPercentNote")}</div>
           )}
-          <Field label="Orientation">
-            <select className="dv-input" value={cfg.appearance.orientation} onChange={(e) => set("appearance.orientation", e.target.value)}><option value="vertical">Vertical (Column)</option><option value="horizontal">Horizontal (Bar)</option></select>
+          <Field label={t(lang, "chartEditor.orientation")}>
+            <select className="dv-input" value={cfg.appearance.orientation} onChange={(e) => set("appearance.orientation", e.target.value)}><option value="vertical">{t(lang, "chartEditor.vertical")}</option><option value="horizontal">{t(lang, "chartEditor.horizontal")}</option></select>
           </Field>
-          <Field label="Number format">
-            <select className="dv-input" value={cfg.appearance.numberFormat} onChange={(e) => set("appearance.numberFormat", e.target.value)}><option value="number">Number</option><option value="currency">Currency</option><option value="percentage">Percentage</option></select>
+          <Field label={t(lang, "chartEditor.numberFormat")}>
+            <select className="dv-input" value={cfg.appearance.numberFormat} onChange={(e) => set("appearance.numberFormat", e.target.value)}><option value="number">{t(lang, "chartEditor.number")}</option><option value="currency">{t(lang, "chartEditor.currency")}</option><option value="percentage">{t(lang, "chartEditor.percentage")}</option></select>
           </Field>
-          <Field label="Color palette">
+          <Field label={t(lang, "chartEditor.colorPalette")}>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {Object.entries(COLOR_PALETTES).map(([id, p]) => (
                 <button key={id} onClick={() => set("appearance.colorPalette", id)} className="dv-btn dv-btn-sm"
@@ -1694,14 +1864,14 @@ function ChartBuilder({ chart, dataset, onSave, onCancel, onAddToReport }) {
               ))}
             </div>
           </Field>
-          <Field label={`Chart font size — ${cfg.appearance.fontSize || 12}px`}>
+          <Field label={tf(lang, "chartEditor.fontSize", { n: cfg.appearance.fontSize || 12 })}>
             <input type="range" min="9" max="18" step="1" value={cfg.appearance.fontSize || 12} onChange={(e) => set("appearance.fontSize", Number(e.target.value))} style={{ width: "100%" }} />
           </Field>
         </Section>
 
         <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-          <button className="dv-btn dv-btn-primary" style={{ flex: 1, justifyContent: "center" }} onClick={() => onSave(cfg)}>Save Chart</button>
-          <button className="dv-btn dv-btn-ghost" onClick={() => { onAddToReport(cfg); onSave(cfg); }}>Add to Report</button>
+          <button className="dv-btn dv-btn-primary" style={{ flex: 1, justifyContent: "center" }} onClick={() => onSave(cfg)}>{t(lang, "chartEditor.saveChart")}</button>
+          <button className="dv-btn dv-btn-ghost" onClick={() => { onAddToReport(cfg); onSave(cfg); }}>{t(lang, "chartEditor.addToReport")}</button>
         </div>
       </div>
 
@@ -1712,7 +1882,7 @@ function ChartBuilder({ chart, dataset, onSave, onCancel, onAddToReport }) {
               <div style={{ fontWeight: 700, fontSize: 17 }}>{cfg.title}</div>
               {cfg.subtitle && <div style={{ fontSize: 13, color: "var(--text-2)" }}>{cfg.subtitle}</div>}
             </div>
-            <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={downloadPNG}><Download size={13} /> PNG</button>
+            <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={downloadPNG}><Download size={13} /> {t(lang, "chartEditor.png")}</button>
           </div>
           <div ref={chartRef} style={{ height: 380, marginTop: 14 }}>
             <FullChart cfg={cfg} data={data} series={series} />
@@ -1865,21 +2035,21 @@ const LOGO_POSITIONS = {
 };
 const LOGO_GRID = [["top-left", "top-center", "top-right"], ["middle-left", "center", "middle-right"], ["bottom-left", "bottom-center", "bottom-right"]];
 
-function getReportTheme(report) {
+function getReportTheme(report, lang) {
   const t = TEMPLATES.find((x) => x.id === report.template) || TEMPLATES[0];
   const d = report.design || {};
   return {
-    name: t.name,
+    name: templateName(t.id, lang),
     accent: d.accentColor || t.accent,
     headingFont: d.headingFont || "serif",
     bodyFontSize: d.bodyFontSize || 13,
   };
 }
 
-function ReportBuilder({ report, setReport, dataset, analysis, charts, setRoute, askConfirm }) {
+function ReportBuilder({ report, setReport, dataset, analysis, charts, setRoute, askConfirm, lang }) {
   const [zoom, setZoom] = useState(0.34);
   const addElement = (type) => {
-    const el = { id: uid(), type, title: SECTION_LIBRARY.find((s) => s.type === type)?.label, config: {} };
+    const el = { id: uid(), type, title: sectionLabel(type, lang), config: {} };
     // Chart sections start unassigned — the user must explicitly pick which chart shows here,
     // rather than silently defaulting to whichever chart happens to be first in the list.
     if (type === "chart") el.config.chartId = null;
@@ -1911,9 +2081,9 @@ function ReportBuilder({ report, setReport, dataset, analysis, charts, setRoute,
     reader.readAsDataURL(file);
   };
 
-  if (!dataset) return <div style={{ padding: 28 }}><EmptyState icon={FileText} title="No dataset loaded" subtitle="Run a New Analysis first, then come back to build your report." /></div>;
+  if (!dataset) return <div style={{ padding: 28 }}><EmptyState icon={FileText} title={t(lang, "reportBuilder.noDatasetTitle")} subtitle={t(lang, "reportBuilder.noDatasetSub")} /></div>;
 
-  const theme = getReportTheme(report);
+  const theme = getReportTheme(report, lang);
   const pageW = report.orientation === "landscape" ? 1123 : 794;
   const pageH = report.orientation === "landscape" ? 794 : 1123;
 
@@ -1922,62 +2092,62 @@ function ReportBuilder({ report, setReport, dataset, analysis, charts, setRoute,
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 24px", borderBottom: "1px solid var(--border)", gap: 12, flexWrap: "wrap" }}>
         <input className="dv-input" style={{ fontSize: 16, fontWeight: 700, border: "none", padding: "4px 0", width: 300, background: "transparent" }} value={report.title} onChange={(e) => setReport((r) => ({ ...r, title: e.target.value }))} />
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="dv-btn dv-btn-ghost" onClick={() => setRoute("report-preview")}><Eye size={15} /> Full Preview</button>
-          <button className="dv-btn dv-btn-primary" onClick={() => setRoute("report-preview")}><Download size={15} /> Export PDF</button>
+          <button className="dv-btn dv-btn-ghost" onClick={() => setRoute("report-preview")}><Eye size={15} /> {t(lang, "reportBuilder.fullPreview")}</button>
+          <button className="dv-btn dv-btn-primary" onClick={() => setRoute("report-preview")}><Download size={15} /> {t(lang, "reportBuilder.exportPdf")}</button>
         </div>
       </div>
 
       <div className="dv-split" style={{ "--split-w": "420px", flex: 1, minHeight: 0 }}>
         <div className="dv-scrollbar dv-split-side" style={{ overflowY: "auto", padding: 20, borderRight: "1px solid var(--border)" }}>
-          <Section title="Template">
+          <Section title={t(lang, "reportBuilder.template")}>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {TEMPLATES.map((t) => (
-                <button key={t.id} onClick={() => setReport((r) => ({ ...r, template: t.id }))} className="dv-btn dv-btn-sm" style={{ border: `1.5px solid ${report.template === t.id ? t.accent : "var(--border)"}`, background: report.template === t.id ? t.accent + "18" : "var(--surface)", color: "var(--text)", alignItems: "center", height: "auto", padding: "7px 10px", gap: 8 }}>
+              {TEMPLATES.map((tpl) => (
+                <button key={tpl.id} onClick={() => setReport((r) => ({ ...r, template: tpl.id }))} className="dv-btn dv-btn-sm" style={{ border: `1.5px solid ${report.template === tpl.id ? tpl.accent : "var(--border)"}`, background: report.template === tpl.id ? tpl.accent + "18" : "var(--surface)", color: "var(--text)", alignItems: "center", height: "auto", padding: "7px 10px", gap: 8 }}>
                   <svg width="34" height="24" viewBox="0 0 34 24" className="dv-tpl-thumb">
                     <rect width="34" height="24" fill="#fff" />
-                    <rect x="3" y="3" width="13" height="2.5" fill={t.accent} rx="1" />
+                    <rect x="3" y="3" width="13" height="2.5" fill={tpl.accent} rx="1" />
                     <rect x="3" y="8" width="28" height="1" fill="#E3E6EC" />
-                    <rect x="3" y="12" width="6" height="9" fill={t.accent} opacity="0.2" />
-                    <rect x="11" y="15" width="6" height="6" fill={t.accent} opacity="0.4" />
-                    <rect x="19" y="9" width="6" height="12" fill={t.accent} opacity="0.6" />
+                    <rect x="3" y="12" width="6" height="9" fill={tpl.accent} opacity="0.2" />
+                    <rect x="11" y="15" width="6" height="6" fill={tpl.accent} opacity="0.4" />
+                    <rect x="19" y="9" width="6" height="12" fill={tpl.accent} opacity="0.6" />
                   </svg>
                   <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-                    <span style={{ fontWeight: 700 }}>{t.name}</span><span style={{ fontSize: 10, color: "var(--text-2)", fontWeight: 400 }}>{t.desc}</span>
+                    <span style={{ fontWeight: 700 }}>{templateName(tpl.id, lang)}</span><span style={{ fontSize: 10, color: "var(--text-2)", fontWeight: 400 }}>{templateDesc(tpl.id, lang)}</span>
                   </span>
                 </button>
               ))}
             </div>
-            <Field label="Report title"><input className="dv-input" value={report.reportTitle} onChange={(e) => setReport((r) => ({ ...r, reportTitle: e.target.value }))} /></Field>
-            <Field label="Company name"><input className="dv-input" value={report.company} onChange={(e) => setReport((r) => ({ ...r, company: e.target.value }))} /></Field>
-            <Field label="Author name"><input className="dv-input" value={report.author} onChange={(e) => setReport((r) => ({ ...r, author: e.target.value }))} /></Field>
-            <Field label="Orientation">
-              <select className="dv-input" value={report.orientation} onChange={(e) => setReport((r) => ({ ...r, orientation: e.target.value }))}><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select>
+            <Field label={t(lang, "reportBuilder.reportTitle")}><input className="dv-input" value={report.reportTitle} onChange={(e) => setReport((r) => ({ ...r, reportTitle: e.target.value }))} /></Field>
+            <Field label={t(lang, "reportBuilder.companyName")}><input className="dv-input" value={report.company} onChange={(e) => setReport((r) => ({ ...r, company: e.target.value }))} /></Field>
+            <Field label={t(lang, "reportBuilder.authorName")}><input className="dv-input" value={report.author} onChange={(e) => setReport((r) => ({ ...r, author: e.target.value }))} /></Field>
+            <Field label={t(lang, "reportBuilder.orientation")}>
+              <select className="dv-input" value={report.orientation} onChange={(e) => setReport((r) => ({ ...r, orientation: e.target.value }))}><option value="portrait">{t(lang, "reportBuilder.portrait")}</option><option value="landscape">{t(lang, "reportBuilder.landscape")}</option></select>
             </Field>
           </Section>
 
-          <Section title="Design">
-            <Field label="Heading font">
+          <Section title={t(lang, "reportBuilder.design")}>
+            <Field label={t(lang, "reportBuilder.headingFont")}>
               <div style={{ display: "flex", gap: 6 }}>
-                <button className="dv-btn dv-btn-sm" style={{ flex: 1, justifyContent: "center", fontFamily: "'Fraunces',serif", border: `1.5px solid ${theme.headingFont === "serif" ? "var(--blue)" : "var(--border)"}` }} onClick={() => setDesign({ headingFont: "serif" })}>Serif</button>
-                <button className="dv-btn dv-btn-sm" style={{ flex: 1, justifyContent: "center", fontFamily: "'Inter',sans-serif", border: `1.5px solid ${theme.headingFont === "sans" ? "var(--blue)" : "var(--border)"}` }} onClick={() => setDesign({ headingFont: "sans" })}>Sans</button>
+                <button className="dv-btn dv-btn-sm" style={{ flex: 1, justifyContent: "center", fontFamily: "'Fraunces',serif", border: `1.5px solid ${theme.headingFont === "serif" ? "var(--blue)" : "var(--border)"}` }} onClick={() => setDesign({ headingFont: "serif" })}>{t(lang, "reportBuilder.serif")}</button>
+                <button className="dv-btn dv-btn-sm" style={{ flex: 1, justifyContent: "center", fontFamily: "'Inter',sans-serif", border: `1.5px solid ${theme.headingFont === "sans" ? "var(--blue)" : "var(--border)"}` }} onClick={() => setDesign({ headingFont: "sans" })}>{t(lang, "reportBuilder.sans")}</button>
               </div>
             </Field>
-            <Field label={`Body text size — ${theme.bodyFontSize}px`}>
+            <Field label={tf(lang, "reportBuilder.bodyTextSize", { n: theme.bodyFontSize })}>
               <input type="range" min="10" max="16" step="1" value={theme.bodyFontSize} onChange={(e) => setDesign({ bodyFontSize: Number(e.target.value) })} style={{ width: "100%" }} />
             </Field>
-            <Field label="Accent color">
+            <Field label={t(lang, "reportBuilder.accentColor")}>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                 {ACCENT_SWATCHES.map((c) => (
                   <button key={c} onClick={() => setDesign({ accentColor: c })} style={{ width: 24, height: 24, borderRadius: 7, background: c, border: theme.accent === c ? "2px solid var(--text)" : "2px solid transparent", cursor: "pointer" }} />
                 ))}
                 <input type="color" value={theme.accent} onChange={(e) => setDesign({ accentColor: e.target.value })} style={{ width: 28, height: 24, border: "1px solid var(--border)", borderRadius: 6, padding: 0, background: "none", cursor: "pointer" }} />
-                {report.design?.accentColor && <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setDesign({ accentColor: null })}>Reset</button>}
+                {report.design?.accentColor && <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setDesign({ accentColor: null })}>{t(lang, "reportBuilder.reset")}</button>}
               </div>
             </Field>
           </Section>
 
-          <Section title="Branding">
-            <Field label="Logo (cover page)">
+          <Section title={t(lang, "reportBuilder.branding")}>
+            <Field label={t(lang, "reportBuilder.logoCover")}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 {report.logo?.dataUrl ? (
                   <img src={report.logo.dataUrl} alt="Logo preview" style={{ width: 44, height: 44, objectFit: "contain", border: "1px solid var(--border)", borderRadius: 8, background: "#fff" }} />
@@ -1986,19 +2156,19 @@ function ReportBuilder({ report, setReport, dataset, analysis, charts, setRoute,
                 )}
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   <label className="dv-btn dv-btn-ghost dv-btn-sm" style={{ cursor: "pointer" }}>
-                    <Upload size={12} /> {report.logo?.dataUrl ? "Replace" : "Upload"}
+                    <Upload size={12} /> {report.logo?.dataUrl ? t(lang, "reportBuilder.replace") : t(lang, "reportBuilder.upload")}
                     <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => handleLogoUpload(e.target.files[0])} />
                   </label>
-                  {report.logo?.dataUrl && <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setLogo({ dataUrl: null })}>Remove</button>}
+                  {report.logo?.dataUrl && <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setLogo({ dataUrl: null })}>{t(lang, "reportBuilder.remove")}</button>}
                 </div>
               </div>
             </Field>
             {report.logo?.dataUrl && (
               <>
-                <Field label={`Logo size — ${report.logo.size || 64}px`}>
+                <Field label={tf(lang, "reportBuilder.logoSize", { n: report.logo.size || 64 })}>
                   <input type="range" min="32" max="180" step="4" value={report.logo.size || 64} onChange={(e) => setLogo({ size: Number(e.target.value) })} style={{ width: "100%" }} />
                 </Field>
-                <Field label="Position on cover page">
+                <Field label={t(lang, "reportBuilder.logoPosition")}>
                   <div style={{ display: "inline-grid", gridTemplateColumns: "repeat(3, 28px)", gridTemplateRows: "repeat(3, 28px)", gap: 4 }}>
                     {LOGO_GRID.flat().map((pos) => (
                       <button key={pos} title={pos} onClick={() => setLogo({ position: pos })}
@@ -2012,16 +2182,16 @@ function ReportBuilder({ report, setReport, dataset, analysis, charts, setRoute,
             )}
           </Section>
 
-          <div className="dv-label" style={{ marginBottom: 8 }}>Add section</div>
+          <div className="dv-label" style={{ marginBottom: 8 }}>{t(lang, "reportBuilder.addSection")}</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 18 }}>
             {SECTION_LIBRARY.map((s) => (
-              <button key={s.type} className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => addElement(s.type)}><s.icon size={13} /> {s.label}</button>
+              <button key={s.type} className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => addElement(s.type)}><s.icon size={13} /> {sectionLabel(s.type, lang)}</button>
             ))}
           </div>
 
-          <div className="dv-label" style={{ marginBottom: 8 }}>Sections in this report</div>
+          <div className="dv-label" style={{ marginBottom: 8 }}>{t(lang, "reportBuilder.sectionsInReport")}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {report.elements.length === 0 && <EmptyState icon={LayoutGrid} title="Your report is empty" subtitle="Add sections above to start building your report." />}
+            {report.elements.length === 0 && <EmptyState icon={LayoutGrid} title={t(lang, "reportBuilder.emptyReportTitle")} subtitle={t(lang, "reportBuilder.emptyReportSub")} />}
             {report.elements.map((el, i) => (
               <div key={el.id} className="dv-card" style={{ padding: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
@@ -2033,10 +2203,10 @@ function ReportBuilder({ report, setReport, dataset, analysis, charts, setRoute,
                   <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
                     <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => move(el.id, -1)}><ChevronUp size={12} /></button>
                     <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => move(el.id, 1)}><ChevronDown size={12} /></button>
-                    <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => askConfirm("Remove section?", `"${el.title}" will be removed from this report.`, () => remove(el.id))}><Trash2 size={12} color="var(--rose)" /></button>
+                    <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => askConfirm(t(lang, "reportBuilder.removeSectionTitle"), tf(lang, "reportBuilder.removeSectionMsg", { title: el.title }), () => remove(el.id))}><Trash2 size={12} color="var(--rose)" /></button>
                   </div>
                 </div>
-                <ElementEditor el={el} updateEl={updateEl} dataset={dataset} analysis={analysis} charts={charts} />
+                <ElementEditor el={el} updateEl={updateEl} dataset={dataset} analysis={analysis} charts={charts} lang={lang} />
               </div>
             ))}
           </div>
@@ -2044,7 +2214,7 @@ function ReportBuilder({ report, setReport, dataset, analysis, charts, setRoute,
 
         <div className="dv-scrollbar" style={{ background: "var(--ink)", overflowY: "auto", padding: 24, display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, position: "sticky", top: 0, zIndex: 2, background: "rgba(11,18,32,.85)", backdropFilter: "blur(6px)", padding: "6px 12px", borderRadius: 999 }}>
-            <span style={{ fontSize: 11, color: "#9BA7C4", fontWeight: 600 }}>Live preview</span>
+            <span style={{ fontSize: 11, color: "#9BA7C4", fontWeight: 600 }}>{t(lang, "reportBuilder.livePreview")}</span>
             <button className="dv-btn dv-btn-ghost dv-btn-sm" style={{ color: "#fff" }} onClick={() => setZoom((z) => Math.max(0.2, z - 0.06))}><ZoomOut size={13} /></button>
             <span style={{ fontSize: 11, color: "#9BA7C4", width: 34, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
             <button className="dv-btn dv-btn-ghost dv-btn-sm" style={{ color: "#fff" }} onClick={() => setZoom((z) => Math.min(0.7, z + 0.06))}><ZoomIn size={13} /></button>
@@ -2066,7 +2236,7 @@ function ReportBuilder({ report, setReport, dataset, analysis, charts, setRoute,
   );
 }
 
-function ElementEditor({ el, updateEl, dataset, analysis, charts }) {
+function ElementEditor({ el, updateEl, dataset, analysis, charts, lang }) {
   if (el.type === "chart") {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -2074,10 +2244,10 @@ function ElementEditor({ el, updateEl, dataset, analysis, charts }) {
           const chosen = charts.find((c) => c.id === e.target.value);
           updateEl(el.id, { config: { ...el.config, chartId: e.target.value }, title: chosen ? chosen.title : el.title });
         }}>
-          <option value="">Select a chart…</option>
+          <option value="">{t(lang, "reportBuilder.selectChart")}</option>
           {charts.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
         </select>
-        <textarea className="dv-input" rows={2} placeholder="Optional paragraph under this chart (e.g. context or takeaway)…" value={el.config.caption || ""} onChange={(e) => updateEl(el.id, { config: { ...el.config, caption: e.target.value } })} />
+        <textarea className="dv-input" rows={2} placeholder={t(lang, "reportBuilder.chartCaptionPlaceholder")} value={el.config.caption || ""} onChange={(e) => updateEl(el.id, { config: { ...el.config, caption: e.target.value } })} />
       </div>
     );
   }
@@ -2085,23 +2255,23 @@ function ElementEditor({ el, updateEl, dataset, analysis, charts }) {
     return <textarea className="dv-input" rows={3} value={el.config.body} onChange={(e) => updateEl(el.id, { config: { ...el.config, body: e.target.value } })} />;
   }
   if (el.type === "kpi") {
-    return <KpiEditor el={el} updateEl={updateEl} dataset={dataset} />;
+    return <KpiEditor el={el} updateEl={updateEl} dataset={dataset} lang={lang} />;
   }
   if (el.type === "table") {
-    return <TableEditor el={el} updateEl={updateEl} dataset={dataset} />;
+    return <TableEditor el={el} updateEl={updateEl} dataset={dataset} lang={lang} />;
   }
   if (el.type === "insights") {
-    return <div style={{ fontSize: 12, color: "var(--text-2)" }}>{(analysis?.insights || []).length} automatic insight(s) will be listed here</div>;
+    return <div style={{ fontSize: 12, color: "var(--text-2)" }}>{tf(lang, "reportBuilder.insightsCount", { n: (analysis?.insights || []).length })}</div>;
   }
   if (el.type === "summary") {
-    return <textarea className="dv-input" rows={3} placeholder="Write a short overview of overall performance, key findings and recommendations…" value={el.config.body || ""} onChange={(e) => updateEl(el.id, { config: { ...el.config, body: e.target.value } })} />;
+    return <textarea className="dv-input" rows={3} placeholder={t(lang, "reportBuilder.summaryPlaceholder")} value={el.config.body || ""} onChange={(e) => updateEl(el.id, { config: { ...el.config, body: e.target.value } })} />;
   }
-  return <div style={{ fontSize: 12, color: "var(--text-2)" }}>Cover page with report title, company and author</div>;
+  return <div style={{ fontSize: 12, color: "var(--text-2)" }}>{t(lang, "reportBuilder.coverDesc")}</div>;
 }
 
 // Lets someone pick exactly which KPI cards appear in this section — column + metric + an
 // optional custom label — rather than being stuck with whatever computeKpis() auto-generated.
-function KpiEditor({ el, updateEl, dataset }) {
+function KpiEditor({ el, updateEl, dataset, lang }) {
   const [field, setField] = useState("");
   const [metric, setMetric] = useState("sum");
   const [label, setLabel] = useState("");
@@ -2120,7 +2290,7 @@ function KpiEditor({ el, updateEl, dataset }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {kpis.length === 0 && <div style={{ fontSize: 11.5, color: "var(--text-3)" }}>No KPI cards chosen yet — add one below.</div>}
+      {kpis.length === 0 && <div style={{ fontSize: 11.5, color: "var(--text-3)" }}>{t(lang, "reportBuilder.noKpisYet")}</div>}
       {kpis.map((k) => (
         <div key={k.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--paper)", borderRadius: 8, padding: "6px 10px" }}>
           <span style={{ fontSize: 12 }}>{k.label} <span style={{ color: "var(--text-3)" }}>({k.metric} of {k.field})</span></span>
@@ -2129,14 +2299,14 @@ function KpiEditor({ el, updateEl, dataset }) {
       ))}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", borderTop: "1px dashed var(--border)", paddingTop: 8, marginTop: 2 }}>
         <select className="dv-input" style={{ flex: "1 1 110px" }} value={field} onChange={(e) => setField(e.target.value)}>
-          <option value="">Column…</option>
+          <option value="">{t(lang, "reportBuilder.column")}</option>
           {numericCols.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
         </select>
         <select className="dv-input" style={{ flex: "0 0 84px" }} value={metric} onChange={(e) => setMetric(e.target.value)}>
           {["sum", "avg", "min", "max", "count"].map((m) => <option key={m} value={m}>{m}</option>)}
           {hasDateCol && <option value="growth">growth</option>}
         </select>
-        <input className="dv-input" style={{ flex: "1 1 100px" }} placeholder="Label (optional)" value={label} onChange={(e) => setLabel(e.target.value)} />
+        <input className="dv-input" style={{ flex: "1 1 100px" }} placeholder={t(lang, "reportBuilder.labelOptional")} value={label} onChange={(e) => setLabel(e.target.value)} />
         <button className="dv-btn dv-btn-primary dv-btn-sm" onClick={addKpi} disabled={!field}><Plus size={12} /></button>
       </div>
     </div>
@@ -2145,7 +2315,7 @@ function KpiEditor({ el, updateEl, dataset }) {
 
 // Lets someone pick which columns show, how many rows, and a sort order for the report's data
 // table — instead of always dumping the first 8 columns / first 10 rows.
-function TableEditor({ el, updateEl, dataset }) {
+function TableEditor({ el, updateEl, dataset, lang }) {
   const safeCols = dataset.schema.filter((s) => !s.sensitive).map((s) => s.name);
   const catCols = dataset.schema.filter((s) => !s.sensitive && ["text", "boolean", "date"].includes(s.type)).map((s) => s.name);
   const numCols = dataset.schema.filter((s) => !s.sensitive && ["number", "currency", "percentage"].includes(s.type)).map((s) => s.name);
@@ -2166,23 +2336,23 @@ function TableEditor({ el, updateEl, dataset }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div>
-        <span className="dv-label">Group by (optional)</span>
+        <span className="dv-label">{t(lang, "reportBuilder.groupByOptional")}</span>
         <select className="dv-input" value={groupBy} onChange={(e) => setCfg({ groupBy: e.target.value })}>
-          <option value="">No grouping — show raw rows</option>
+          <option value="">{t(lang, "reportBuilder.noGrouping")}</option>
           {catCols.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
-        {groupBy && <div style={{ fontSize: 10.5, color: "var(--text-3)", marginTop: 4 }}>Shows one row per "{groupBy}", with numeric columns below summarized by the aggregation you pick.</div>}
+        {groupBy && <div style={{ fontSize: 10.5, color: "var(--text-3)", marginTop: 4 }}>{tf(lang, "reportBuilder.groupByNote", { field: groupBy })}</div>}
       </div>
       {groupBy && (
         <div>
-          <span className="dv-label">Aggregation</span>
+          <span className="dv-label">{t(lang, "reportBuilder.aggregation")}</span>
           <select className="dv-input" value={aggregation} onChange={(e) => setCfg({ aggregation: e.target.value })}>
             {["sum", "avg", "count", "min", "max"].map((a) => <option key={a} value={a}>{a}</option>)}
           </select>
         </div>
       )}
       <div>
-        <div className="dv-label" style={{ marginBottom: 5 }}>Columns ({selected.length} of {safeCols.length})</div>
+        <div className="dv-label" style={{ marginBottom: 5 }}>{tf(lang, "reportBuilder.columnsCount", { n: selected.length, total: safeCols.length })}</div>
         <div className="dv-scrollbar" style={{ display: "flex", flexWrap: "wrap", gap: 5, maxHeight: 96, overflowY: "auto" }}>
           {(groupBy ? numCols : safeCols).map((c) => (
             <button key={c} onClick={() => toggleCol(c)} className="dv-btn dv-btn-sm"
@@ -2191,30 +2361,30 @@ function TableEditor({ el, updateEl, dataset }) {
             </button>
           ))}
         </div>
-        {groupBy && <div style={{ fontSize: 10.5, color: "var(--text-3)", marginTop: 4 }}>Only numeric columns can be aggregated — "{groupBy}" is always shown as the first column.</div>}
-        {excludedCount > 0 && <div style={{ fontSize: 10.5, color: "var(--text-3)", marginTop: 4 }}>{excludedCount} personal-data column{excludedCount === 1 ? "" : "s"} always excluded.</div>}
+        {groupBy && <div style={{ fontSize: 10.5, color: "var(--text-3)", marginTop: 4 }}>{tf(lang, "reportBuilder.numericOnlyNote", { field: groupBy })}</div>}
+        {excludedCount > 0 && <div style={{ fontSize: 10.5, color: "var(--text-3)", marginTop: 4 }}>{tf(lang, "reportBuilder.piiExcludedNote", { n: excludedCount })}</div>}
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <div style={{ flex: 1 }}>
-          <span className="dv-label">Rows</span>
+          <span className="dv-label">{t(lang, "reportBuilder.rows")}</span>
           <select className="dv-input" value={rowLimit} onChange={(e) => setCfg({ rowLimit: Number(e.target.value) })}>
-            {[5, 10, 20, 50, 100].map((n) => <option key={n} value={n}>{n} rows</option>)}
-            <option value={0}>All rows</option>
+            {[5, 10, 20, 50, 100].map((n) => <option key={n} value={n}>{n} {t(lang, "reportBuilder.rows").toLowerCase()}</option>)}
+            <option value={0}>{t(lang, "reportBuilder.allRows")}</option>
           </select>
         </div>
         <div style={{ flex: 1 }}>
-          <span className="dv-label">Sort by</span>
+          <span className="dv-label">{t(lang, "reportBuilder.sortBy")}</span>
           <select className="dv-input" value={sortBy} onChange={(e) => setCfg({ sortBy: e.target.value })}>
-            <option value="">Original order</option>
+            <option value="">{t(lang, "reportBuilder.originalOrder")}</option>
             {(groupBy ? [groupBy, ...numCols] : safeCols).map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         {sortBy && (
           <div style={{ flex: "0 0 74px" }}>
-            <span className="dv-label">Dir</span>
+            <span className="dv-label">{t(lang, "reportBuilder.dir")}</span>
             <select className="dv-input" value={sortDir} onChange={(e) => setCfg({ sortDir: e.target.value })}>
-              <option value="asc">Asc</option>
-              <option value="desc">Desc</option>
+              <option value="asc">{t(lang, "reportBuilder.asc")}</option>
+              <option value="desc">{t(lang, "reportBuilder.desc")}</option>
             </select>
           </div>
         )}
@@ -2224,21 +2394,21 @@ function TableEditor({ el, updateEl, dataset }) {
 }
 
 /* ============================== REPORT PREVIEW / PDF ============================== */
-function ReportPreview({ report, dataset, analysis, charts, setRoute }) {
+function ReportPreview({ report, dataset, analysis, charts, setRoute, lang }) {
   const [zoom, setZoom] = useState(0.62);
-  const theme = getReportTheme(report);
+  const theme = getReportTheme(report, lang);
   const pageW = report.orientation === "landscape" ? 1123 : 794;
   const pageH = report.orientation === "landscape" ? 794 : 1123;
 
   return (
     <div className="dv-fade-in" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 24px", borderBottom: "1px solid var(--border)" }}>
-        <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setRoute("report-builder")}><ArrowLeft size={14} /> Edit report</button>
+        <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setRoute("report-builder")}><ArrowLeft size={14} /> {t(lang, "reportPreview.editReport")}</button>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setZoom((z) => Math.max(0.3, z - 0.1))}><ZoomOut size={14} /></button>
           <span style={{ fontSize: 12, color: "var(--text-2)", width: 40, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
           <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setZoom((z) => Math.min(1.2, z + 0.1))}><ZoomIn size={14} /></button>
-          <button className="dv-btn dv-btn-primary dv-btn-sm" onClick={() => window.print()}><Download size={14} /> Export PDF</button>
+          <button className="dv-btn dv-btn-primary dv-btn-sm" onClick={() => window.print()}><Download size={14} /> {t(lang, "reportPreview.exportPdf")}</button>
         </div>
       </div>
       <div className="dv-scrollbar" style={{ flex: 1, overflow: "auto", background: "var(--ink)", padding: 30, display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
@@ -2399,11 +2569,11 @@ function ReportElementBody({ el, dataset, analysis, charts, theme }) {
 }
 
 /* ============================== FILES / REPORTS / SETTINGS ============================== */
-function FilesPage({ files, setFiles, setRoute, askConfirm }) {
+function FilesPage({ files, setFiles, setRoute, askConfirm, lang }) {
   return (
     <div className="dv-fade-in" style={{ padding: 28, maxWidth: 1080, margin: "0 auto" }}>
-      <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 18 }}>My Files</div>
-      {files.length === 0 ? <EmptyState icon={FileSpreadsheet} title="No files yet" subtitle="Upload your first dataset to start analyzing your data." action={<button className="dv-btn dv-btn-primary dv-btn-sm" onClick={() => setRoute("new-analysis")}>Upload data</button>} /> : (
+      <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 18 }}>{t(lang, "filesPage.heading")}</div>
+      {files.length === 0 ? <EmptyState icon={FileSpreadsheet} title={t(lang, "filesPage.noFilesTitle")} subtitle={t(lang, "filesPage.noFilesSub")} action={<button className="dv-btn dv-btn-primary dv-btn-sm" onClick={() => setRoute("new-analysis")}>{t(lang, "filesPage.uploadData")}</button>} /> : (
         <div className="dv-card">
           {files.map((f, i) => (
             <div key={f.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 18px", borderBottom: i < files.length - 1 ? "1px solid var(--border-2)" : "none" }}>
@@ -2411,13 +2581,13 @@ function FilesPage({ files, setFiles, setRoute, askConfirm }) {
                 <IconBox icon={FileSpreadsheet} tone="blue" />
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 13.5 }}>{f.name}</div>
-                  <div style={{ fontSize: 11.5, color: "var(--text-3)" }}>{f.rowCount} rows · {f.colCount} cols · uploaded {f.uploadDate}</div>
+                  <div style={{ fontSize: 11.5, color: "var(--text-3)" }}>{tf(lang, "filesPage.metaLine", { rows: f.rowCount, cols: f.colCount, date: f.uploadDate })}</div>
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6 }}>
-                <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setRoute("new-analysis")}>Open</button>
-                <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setRoute("new-analysis")}>Analyze</button>
-                <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => askConfirm("Delete file?", `"${f.name}" will be removed from My Files. This can't be undone.`, () => setFiles((fs) => fs.filter((x) => x.id !== f.id)))}>
+                <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setRoute("new-analysis")}>{t(lang, "filesPage.open")}</button>
+                <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setRoute("new-analysis")}>{t(lang, "filesPage.analyze")}</button>
+                <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => askConfirm(t(lang, "filesPage.deleteTitle"), tf(lang, "filesPage.deleteMsg", { name: f.name }), () => setFiles((fs) => fs.filter((x) => x.id !== f.id)))}>
                   <Trash2 size={13} color="var(--rose)" />
                 </button>
               </div>
@@ -2429,21 +2599,21 @@ function FilesPage({ files, setFiles, setRoute, askConfirm }) {
   );
 }
 
-function ReportsPage({ reports, setReports, setRoute, askConfirm }) {
+function ReportsPage({ reports, setReports, setRoute, askConfirm, lang }) {
   return (
     <div className="dv-fade-in" style={{ padding: 28, maxWidth: 1080, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 18 }}>
-        <div style={{ fontWeight: 700, fontSize: 17 }}>My Reports</div>
-        <button className="dv-btn dv-btn-primary dv-btn-sm" onClick={() => setRoute("report-builder")}><Plus size={14} /> New Report</button>
+        <div style={{ fontWeight: 700, fontSize: 17 }}>{t(lang, "reportsPage.heading")}</div>
+        <button className="dv-btn dv-btn-primary dv-btn-sm" onClick={() => setRoute("report-builder")}><Plus size={14} /> {t(lang, "reportsPage.newReport")}</button>
       </div>
       <div className="dv-card" style={{ padding: 16, marginBottom: 18, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: "var(--blue-dim)", borderColor: "var(--blue)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <IconBox icon={FileText} tone="blue" />
-          <div style={{ fontSize: 13, color: "var(--text)" }}>Continue editing your current draft report</div>
+          <div style={{ fontSize: 13, color: "var(--text)" }}>{t(lang, "reportsPage.continueEditing")}</div>
         </div>
-        <button className="dv-btn dv-btn-primary dv-btn-sm" onClick={() => setRoute("report-builder")}>Open Report Builder <ArrowRight size={13} /></button>
+        <button className="dv-btn dv-btn-primary dv-btn-sm" onClick={() => setRoute("report-builder")}>{t(lang, "reportsPage.openBuilder")} <ArrowRight size={13} /></button>
       </div>
-      {reports.length === 0 ? <EmptyState icon={FileText} title="No saved reports yet" subtitle="Reports you build get listed here once you preview or export them." /> : (
+      {reports.length === 0 ? <EmptyState icon={FileText} title={t(lang, "reportsPage.noReportsTitle")} subtitle={t(lang, "reportsPage.noReportsSub")} /> : (
         <div className="dv-card">
           {reports.map((r, i) => (
             <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 18px", borderBottom: i < reports.length - 1 ? "1px solid var(--border-2)" : "none" }}>
@@ -2451,13 +2621,13 @@ function ReportsPage({ reports, setReports, setRoute, askConfirm }) {
                 <IconBox icon={FileText} tone="teal" />
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 13.5 }}>{r.title}</div>
-                  <div style={{ fontSize: 11.5, color: "var(--text-3)" }}>{r.template} · {r.elements.length} sections</div>
+                  <div style={{ fontSize: 11.5, color: "var(--text-3)" }}>{tf(lang, "reportsPage.sectionsCount", { template: r.template, n: r.elements.length })}</div>
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6 }}>
-                <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setRoute("report-preview")}>View</button>
-                <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setRoute("report-builder")}>Edit</button>
-                <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => askConfirm("Delete report?", `"${r.title}" will be permanently deleted. This can't be undone.`, () => setReports((rs) => rs.filter((x) => x.id !== r.id)))}>
+                <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setRoute("report-preview")}>{t(lang, "reportsPage.view")}</button>
+                <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => setRoute("report-builder")}>{t(lang, "reportsPage.edit")}</button>
+                <button className="dv-btn dv-btn-ghost dv-btn-sm" onClick={() => askConfirm(t(lang, "reportsPage.deleteTitle"), tf(lang, "reportsPage.deleteMsg", { title: r.title }), () => setReports((rs) => rs.filter((x) => x.id !== r.id)))}>
                   <Trash2 size={13} color="var(--rose)" />
                 </button>
               </div>
@@ -2496,7 +2666,7 @@ function SettingsPage({ settings, setSettings, theme, setTheme, lang, setLang, s
             <select className="dv-input" value={settings.dateFormat} onChange={(e) => setSettings((s) => ({ ...s, dateFormat: e.target.value }))}><option>MM/DD/YYYY</option><option>DD/MM/YYYY</option><option>YYYY-MM-DD</option></select>
           </Field>
           <Field label={t(lang, "settings.defaultTemplate")}>
-            <select className="dv-input" value={settings.template} onChange={(e) => setSettings((s) => ({ ...s, template: e.target.value }))}>{TEMPLATES.map((tpl) => <option key={tpl.id} value={tpl.id}>{tpl.name}</option>)}</select>
+            <select className="dv-input" value={settings.template} onChange={(e) => setSettings((s) => ({ ...s, template: e.target.value }))}>{TEMPLATES.map((tpl) => <option key={tpl.id} value={tpl.id}>{templateName(tpl.id, lang)}</option>)}</select>
           </Field>
         </div>
         <button className="dv-btn dv-btn-sm" style={{ background: justSaved ? "var(--teal)" : "var(--blue)", color: "#fff" }} onClick={handleSave}>
@@ -2630,18 +2800,18 @@ export default function DataVisionApp() {
     <div className="dv-root" data-theme={theme} dir={lang === "ar" ? "rtl" : "ltr"} style={{ height: "100vh", minHeight: 640, display: "flex" }}>
       <GlobalStyle />
       <style>{`@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>
-      <ConfirmDialog state={confirmState} onCancel={() => setConfirmState(null)} />
+      <ConfirmDialog state={confirmState} onCancel={() => setConfirmState(null)} lang={lang} />
       <Sidebar route={route} setRoute={goRoute} lang={lang} />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         {!isFullBleed && !isPreview && <TopBar title={titles[route]?.[0] || ""} subtitle={titles[route]?.[1]} theme={theme} setTheme={setTheme} lang={lang} setLang={setLang} />}
         <div className="dv-scrollbar" style={{ flex: 1, overflowY: isFullBleed ? "hidden" : "auto", minHeight: 0 }}>
           {route === "dashboard" && <Dashboard files={files} reports={reports} setRoute={goRoute} lang={lang} />}
           {route === "new-analysis" && <NewAnalysis dataset={dataset} setDataset={setDataset} onFinish={handleFinishAnalysis} setRoute={goRoute} onAddToReport={addChartToReport} onCustomizeChart={onCustomizeChart} lang={lang} onFileImported={registerFile} />}
-          {route === "charts" && <ChartsPage charts={charts} setCharts={setCharts} dataset={dataset} onAddToReport={addChartToReport} editingId={editingChartId} setEditingId={setEditingChartId} />}
-          {route === "files" && <FilesPage files={files} setFiles={setFiles} setRoute={goRoute} askConfirm={askConfirm} />}
-          {route === "reports" && <ReportsPage reports={reports} setReports={setReports} setRoute={goRoute} askConfirm={askConfirm} />}
-          {route === "report-builder" && <ReportBuilder report={report} setReport={setReport} dataset={dataset} analysis={analysis} charts={charts} setRoute={goRoute} askConfirm={askConfirm} />}
-          {route === "report-preview" && <ReportPreview report={report} dataset={dataset} analysis={analysis} charts={charts} setRoute={goRoute} />}
+          {route === "charts" && <ChartsPage charts={charts} setCharts={setCharts} dataset={dataset} onAddToReport={addChartToReport} editingId={editingChartId} setEditingId={setEditingChartId} lang={lang} />}
+          {route === "files" && <FilesPage files={files} setFiles={setFiles} setRoute={goRoute} askConfirm={askConfirm} lang={lang} />}
+          {route === "reports" && <ReportsPage reports={reports} setReports={setReports} setRoute={goRoute} askConfirm={askConfirm} lang={lang} />}
+          {route === "report-builder" && <ReportBuilder report={report} setReport={setReport} dataset={dataset} analysis={analysis} charts={charts} setRoute={goRoute} askConfirm={askConfirm} lang={lang} />}
+          {route === "report-preview" && <ReportPreview report={report} dataset={dataset} analysis={analysis} charts={charts} setRoute={goRoute} lang={lang} />}
           {route === "settings" && <SettingsPage settings={settings} setSettings={setSettings} theme={theme} setTheme={setTheme} lang={lang} setLang={setLang} setReport={setReport} />}
         </div>
       </div>
